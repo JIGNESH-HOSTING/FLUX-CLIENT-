@@ -12,17 +12,31 @@ import net.minecraft.text.Text;
 import java.util.List;
 
 /**
- * Interactive drag-and-drop & scroll-to-scale HUD layout editor for FLUX CLIENT.
+ * Interactive drag-and-drop & resize HUD layout editor for FLUX CLIENT.
+ * Supports both mouse-wheel scaling and touch-friendly [-]/[+] scale buttons for PojavLauncher.
  */
 public class HudEditorScreen extends Screen {
     private final Screen parent;
     private HudModule draggingModule = null;
+    private HudModule selectedModule = null;
     private double dragOffsetX = 0.0;
     private double dragOffsetY = 0.0;
 
     public HudEditorScreen(Screen parent) {
         super(Text.literal("Flux HUD Editor"));
         this.parent = parent;
+    }
+
+    @Override
+    protected void init() {
+        if (selectedModule == null) {
+            for (HudModule m : ModuleManager.getInstance().getHudModules()) {
+                if (m.isEnabled()) {
+                    selectedModule = m;
+                    break;
+                }
+            }
+        }
     }
 
     @Override
@@ -41,16 +55,15 @@ public class HudEditorScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Lightweight translucent grid overlay rendered in render()
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         ctx.fill(0, 0, this.width, this.height, 0x6606090E);
 
-        // Subtle center alignment guides
-        ctx.fill(this.width / 2, 0, this.width / 2 + 1, this.height, 0x33EE5A24);
-        ctx.fill(0, this.height / 2, this.width, this.height / 2 + 1, 0x33EE5A24);
+        // Center-axis alignment guides
+        ctx.fill(this.width / 2, 0, this.width / 2 + 1, this.height, 0x38F05A24);
+        ctx.fill(0, this.height / 2, this.width, this.height / 2 + 1, 0x38F05A24);
 
         List<HudModule> hudModules = ModuleManager.getInstance().getHudModules();
         for (HudModule mod : hudModules) {
@@ -65,35 +78,47 @@ public class HudEditorScreen extends Screen {
             int w = mod.getScaledWidth();
             int h = mod.getScaledHeight();
 
-            boolean hov = (draggingModule == mod) || RenderUtils.isHovered(mouseX, mouseY, x, y, w, h);
-            int outline = (draggingModule == mod) ? 0xFFEE5A24 : (hov ? 0xFF38B2FF : 0x88FFFFFF);
+            boolean active = (draggingModule == mod) || (selectedModule == mod);
+            boolean hov = RenderUtils.isHovered(mouseX, mouseY, x, y, w, h);
+            int outline = (draggingModule == mod)
+                    ? FluxModMenuScreen.ACCENT_ORANGE
+                    : (active ? 0xFF38B2FF : (hov ? 0xCCFFFFFF : 0x77FFFFFF));
             ctx.drawStrokedRectangle(x - 1, y - 1, w + 2, h + 2, outline);
         }
 
-        // Top-center floating control bar
-        int barW = 290;
+        // Top-center floating control bar (with touch-friendly [-] / [+] scale buttons)
+        int barW = Math.min(336, this.width - 16);
         int barH = 38;
         int barX = (this.width - barW) / 2;
-        int barY = 10;
+        int barY = 8;
         RenderUtils.drawRoundedBox(ctx, barX, barY, barW, barH, 0xEE0B0E13, 0xFF283240);
-        ctx.drawCenteredTextWithShadow(
-                this.textRenderer,
-                "HUD LAYOUT EDITOR — Drag to Move | Scroll to Resize",
-                barX + barW / 2,
-                barY + 6,
-                0xFFF2F6FA
-        );
 
-        int saveX = barX + 46;
+        String headerText = selectedModule != null
+                ? "HUD EDITOR — " + selectedModule.getName() + " (" + String.format("%.2fx", selectedModule.getScale()) + ")"
+                : "HUD EDITOR — Drag Elements | Scroll or Tap -/+ to Resize";
+        ctx.drawCenteredTextWithShadow(this.textRenderer, headerText, barX + barW / 2, barY + 5, 0xFFF2F6FA);
+
         int btnY = barY + 19;
-        boolean saveHov = RenderUtils.isHovered(mouseX, mouseY, saveX, btnY, 92, 15);
-        RenderUtils.drawRoundedBox(ctx, saveX, btnY, 92, 15, saveHov ? 0xFFFF6B35 : 0xFFEE5A24, 0xFFFF7A48);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "Save & Back", saveX + 46, btnY + 4, 0xFFFFFFFF);
+        int minusX = barX + 12;
+        boolean minusHov = RenderUtils.isHovered(mouseX, mouseY, minusX, btnY, 28, 15);
+        RenderUtils.drawRoundedBox(ctx, minusX, btnY, 28, 15, minusHov ? 0xFF242D39 : 0xFF171C24, 0xFF313C4B);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, "-", minusX + 14, btnY + 4, 0xFFFFFFFF);
 
-        int resetX = saveX + 100;
+        int plusX = minusX + 32;
+        boolean plusHov = RenderUtils.isHovered(mouseX, mouseY, plusX, btnY, 28, 15);
+        RenderUtils.drawRoundedBox(ctx, plusX, btnY, 28, 15, plusHov ? 0xFF242D39 : 0xFF171C24, 0xFF313C4B);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, "+", plusX + 14, btnY + 4, 0xFFFFFFFF);
+
+        int resetX = plusX + 36;
         boolean resetHov = RenderUtils.isHovered(mouseX, mouseY, resetX, btnY, 96, 15);
         RenderUtils.drawRoundedBox(ctx, resetX, btnY, 96, 15, resetHov ? 0xFF242D39 : 0xFF171C24, 0xFF313C4B);
         ctx.drawCenteredTextWithShadow(this.textRenderer, "Reset Positions", resetX + 48, btnY + 4, 0xFFDCE6F2);
+
+        int saveW = barX + barW - 12 - (resetX + 102);
+        int saveX = resetX + 102;
+        boolean saveHov = RenderUtils.isHovered(mouseX, mouseY, saveX, btnY, saveW, 15);
+        RenderUtils.drawRoundedBox(ctx, saveX, btnY, saveW, 15, saveHov ? FluxModMenuScreen.ACCENT_ORANGE_HOVER : FluxModMenuScreen.ACCENT_ORANGE, 0xFFFF7A48);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, "Save & Back", saveX + saveW / 2, btnY + 4, 0xFFFFFFFF);
 
         super.render(ctx, mouseX, mouseY, delta);
     }
@@ -103,18 +128,39 @@ public class HudEditorScreen extends Screen {
         double mx = click.x();
         double my = click.y();
 
-        int barW = 290;
+        int barW = Math.min(336, this.width - 16);
         int barX = (this.width - barW) / 2;
-        int btnY = 29;
-        if (RenderUtils.isHovered(mx, my, barX + 46, btnY, 92, 15)) {
-            this.close();
+        int btnY = 27;
+        int minusX = barX + 12;
+        int plusX = minusX + 32;
+        int resetX = plusX + 36;
+        int saveX = resetX + 102;
+        int saveW = barX + barW - 12 - saveX;
+
+        if (RenderUtils.isHovered(mx, my, minusX, btnY, 28, 15)) {
+            if (selectedModule != null) {
+                selectedModule.setScale(selectedModule.getScale() - 0.05);
+                FluxConfigManager.saveAsync();
+            }
             return true;
         }
-        if (RenderUtils.isHovered(mx, my, barX + 146, btnY, 96, 15)) {
+        if (RenderUtils.isHovered(mx, my, plusX, btnY, 28, 15)) {
+            if (selectedModule != null) {
+                selectedModule.setScale(selectedModule.getScale() + 0.05);
+                FluxConfigManager.saveAsync();
+            }
+            return true;
+        }
+        if (RenderUtils.isHovered(mx, my, resetX, btnY, 96, 15)) {
             for (HudModule m : ModuleManager.getInstance().getHudModules()) {
                 m.resetPosition();
+                m.setScale(1.0);
             }
             FluxConfigManager.saveAsync();
+            return true;
+        }
+        if (RenderUtils.isHovered(mx, my, saveX, btnY, saveW, 15)) {
+            this.close();
             return true;
         }
 
@@ -129,6 +175,7 @@ public class HudEditorScreen extends Screen {
             int w = mod.getScaledWidth();
             int h = mod.getScaledHeight();
             if (RenderUtils.isHovered(mx, my, x, y, w, h)) {
+                selectedModule = mod;
                 if (click.button() == 1) {
                     mod.toggle();
                     FluxConfigManager.saveAsync();
@@ -148,10 +195,14 @@ public class HudEditorScreen extends Screen {
         if (draggingModule != null && click.button() == 0) {
             int newX = (int) Math.round(click.x() - dragOffsetX);
             int newY = (int) Math.round(click.y() - dragOffsetY);
-            // Snap gently to center axes within 4px
+            // Snap to horizontal & vertical center axes within 4px
             int centerW = (this.width - draggingModule.getScaledWidth()) / 2;
+            int centerH = (this.height - draggingModule.getScaledHeight()) / 2;
             if (Math.abs(newX - centerW) <= 4) {
                 newX = centerW;
+            }
+            if (Math.abs(newY - centerH) <= 4) {
+                newY = centerH;
             }
             draggingModule.setPixelPosition(newX, newY, this.width, this.height);
             return true;
@@ -179,10 +230,16 @@ public class HudEditorScreen extends Screen {
             int x = mod.resolvePixelX(this.width);
             int y = mod.resolvePixelY(this.height);
             if (RenderUtils.isHovered(mouseX, mouseY, x, y, mod.getScaledWidth(), mod.getScaledHeight())) {
+                selectedModule = mod;
                 mod.setScale(mod.getScale() + (verticalAmount > 0 ? 0.05 : -0.05));
                 FluxConfigManager.saveAsync();
                 return true;
             }
+        }
+        if (selectedModule != null) {
+            selectedModule.setScale(selectedModule.getScale() + (verticalAmount > 0 ? 0.05 : -0.05));
+            FluxConfigManager.saveAsync();
+            return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }

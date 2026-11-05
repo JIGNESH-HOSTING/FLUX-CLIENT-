@@ -14,10 +14,11 @@ import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.scoreboard.number.BlankNumberFormat;
 import net.minecraft.scoreboard.number.NumberFormat;
 
-import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 
 public final class CustomScoreboardModule extends Module {
+    private final Map<ScoreboardObjective, NumberFormat> reusableFormatMap = new IdentityHashMap<>(8);
     private final BooleanSetting hideRedNumbersSetting;
     private final BooleanSetting hideScoreboardSetting;
     private final NumberSetting scaleSetting;
@@ -50,15 +51,16 @@ public final class CustomScoreboardModule extends Module {
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
-        Map<ScoreboardObjective, NumberFormat> savedFormats = null;
+        boolean appliedBlankNumbers = false;
 
         if (hideRedNumbersSetting.get() && client.world != null) {
             Scoreboard scoreboard = client.world.getScoreboard();
-            savedFormats = new HashMap<>();
+            reusableFormatMap.clear();
             for (ScoreboardObjective obj : scoreboard.getObjectives()) {
-                savedFormats.put(obj, obj.getNumberFormat());
+                reusableFormatMap.put(obj, obj.getNumberFormat());
                 obj.setNumberFormat(BlankNumberFormat.INSTANCE);
             }
+            appliedBlankNumbers = true;
         }
 
         float scale = scaleSetting.getFloat();
@@ -80,10 +82,11 @@ public final class CustomScoreboardModule extends Module {
             vanillaRenderer.render(context, tickCounter);
         } finally {
             context.getMatrices().popMatrix();
-            if (savedFormats != null) {
-                for (Map.Entry<ScoreboardObjective, NumberFormat> entry : savedFormats.entrySet()) {
+            if (appliedBlankNumbers) {
+                for (Map.Entry<ScoreboardObjective, NumberFormat> entry : reusableFormatMap.entrySet()) {
                     entry.getKey().setNumberFormat(entry.getValue());
                 }
+                reusableFormatMap.clear();
             }
         }
     }

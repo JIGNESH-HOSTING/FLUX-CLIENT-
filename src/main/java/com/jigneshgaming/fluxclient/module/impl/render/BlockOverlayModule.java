@@ -39,12 +39,12 @@ public final class BlockOverlayModule extends Module {
     }
 
     public boolean renderBlockOutline(WorldRenderContext context, OutlineRenderState outlineState) {
-        if (!isEnabled() || outlineState == null) {
-            return true;
+        if (!isEnabled() || outlineState == null || context.consumers() == null) {
+            return false;
         }
         VoxelShape shape = outlineState.shape();
         if (shape == null || shape.isEmpty()) {
-            return true;
+            return false;
         }
 
         Vec3d cam = context.worldState().cameraRenderState.pos;
@@ -76,16 +76,19 @@ public final class BlockOverlayModule extends Module {
             Matrix4f mat = matrices.peek().getPositionMatrix();
             shape.forEachBox((minX, minY, minZ, maxX, maxY, maxZ) ->
                     drawFilledBox(mat, fillBuffer,
-                            (float) (minX - 0.0015), (float) (minY - 0.0015), (float) (minZ - 0.0015),
-                            (float) (maxX + 0.0015), (float) (maxY + 0.0015), (float) (maxZ + 0.0015),
+                            (float) (minX - 0.002), (float) (minY - 0.002), (float) (minZ - 0.002),
+                            (float) (maxX + 0.002), (float) (maxY + 0.002), (float) (maxZ + 0.002),
                             fillColor)
             );
             matrices.pop();
         }
 
-        return false;
+        return true;
     }
 
+    /**
+     * Emits 6 outward-facing CCW quads compatible with VIEW_OFFSET_Z_LAYERING & backface culling.
+     */
     public static void drawFilledBox(
             Matrix4f mat,
             VertexConsumer vc,
@@ -93,35 +96,35 @@ public final class BlockOverlayModule extends Module {
             float maxX, float maxY, float maxZ,
             int color
     ) {
-        // Front
-        vc.vertex(mat, minX, minY, minZ).color(color);
-        vc.vertex(mat, maxX, minY, minZ).color(color);
-        vc.vertex(mat, maxX, maxY, minZ).color(color);
-        vc.vertex(mat, minX, maxY, minZ).color(color);
-        // Back
-        vc.vertex(mat, maxX, minY, maxZ).color(color);
-        vc.vertex(mat, minX, minY, maxZ).color(color);
-        vc.vertex(mat, minX, maxY, maxZ).color(color);
-        vc.vertex(mat, maxX, maxY, maxZ).color(color);
-        // Left
-        vc.vertex(mat, minX, minY, maxZ).color(color);
+        // North (-Z)
         vc.vertex(mat, minX, minY, minZ).color(color);
         vc.vertex(mat, minX, maxY, minZ).color(color);
-        vc.vertex(mat, minX, maxY, maxZ).color(color);
-        // Right
+        vc.vertex(mat, maxX, maxY, minZ).color(color);
         vc.vertex(mat, maxX, minY, minZ).color(color);
-        vc.vertex(mat, maxX, minY, maxZ).color(color);
-        vc.vertex(mat, maxX, maxY, maxZ).color(color);
-        vc.vertex(mat, maxX, maxY, minZ).color(color);
-        // Top
-        vc.vertex(mat, minX, maxY, minZ).color(color);
-        vc.vertex(mat, maxX, maxY, minZ).color(color);
-        vc.vertex(mat, maxX, maxY, maxZ).color(color);
-        vc.vertex(mat, minX, maxY, maxZ).color(color);
-        // Bottom
+        // South (+Z)
         vc.vertex(mat, minX, minY, maxZ).color(color);
         vc.vertex(mat, maxX, minY, maxZ).color(color);
-        vc.vertex(mat, maxX, minY, minZ).color(color);
+        vc.vertex(mat, maxX, maxY, maxZ).color(color);
+        vc.vertex(mat, minX, maxY, maxZ).color(color);
+        // West (-X)
         vc.vertex(mat, minX, minY, minZ).color(color);
+        vc.vertex(mat, minX, minY, maxZ).color(color);
+        vc.vertex(mat, minX, maxY, maxZ).color(color);
+        vc.vertex(mat, minX, maxY, minZ).color(color);
+        // East (+X)
+        vc.vertex(mat, maxX, minY, maxZ).color(color);
+        vc.vertex(mat, maxX, minY, minZ).color(color);
+        vc.vertex(mat, maxX, maxY, minZ).color(color);
+        vc.vertex(mat, maxX, maxY, maxZ).color(color);
+        // Top (+Y)
+        vc.vertex(mat, minX, maxY, maxZ).color(color);
+        vc.vertex(mat, maxX, maxY, maxZ).color(color);
+        vc.vertex(mat, maxX, maxY, minZ).color(color);
+        vc.vertex(mat, minX, maxY, minZ).color(color);
+        // Bottom (-Y)
+        vc.vertex(mat, minX, minY, minZ).color(color);
+        vc.vertex(mat, maxX, minY, minZ).color(color);
+        vc.vertex(mat, maxX, minY, maxZ).color(color);
+        vc.vertex(mat, minX, minY, maxZ).color(color);
     }
 }

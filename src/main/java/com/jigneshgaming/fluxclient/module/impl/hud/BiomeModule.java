@@ -9,12 +9,11 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.biome.Biome;
 
-import java.util.Collections;
 import java.util.Optional;
 
 public final class BiomeModule extends HudModule {
     private BlockPos lastBlockPos = null;
-    private String cachedBiome = "Plains";
+    private String cachedDisplay = "Biome: Plains";
 
     public BiomeModule() {
         super(
@@ -33,7 +32,7 @@ public final class BiomeModule extends HudModule {
         Entity cam = client.getCameraEntity();
         if (cam == null || client.world == null) {
             if (previewMode) {
-                drawHudLinesBox(context, client.textRenderer, Collections.singletonList("Biome: Plains"));
+                drawHudLineBox(context, client.textRenderer, "Biome: Plains");
             }
             return;
         }
@@ -43,19 +42,18 @@ public final class BiomeModule extends HudModule {
             Optional<RegistryKey<Biome>> keyOpt = client.world.getBiome(pos).getKey();
             if (keyOpt.isPresent()) {
                 String raw = keyOpt.get().getValue().getPath();
-                cachedBiome = formatBiomeName(raw);
+                cachedDisplay = "Biome: " + formatBiomeName(raw);
             } else {
-                cachedBiome = "Unknown";
+                cachedDisplay = "Biome: Unknown";
             }
         }
-        drawHudLinesBox(context, client.textRenderer, Collections.singletonList("Biome: " + cachedBiome));
+        drawHudLineBox(context, client.textRenderer, cachedDisplay);
     }
 
     private static String formatBiomeName(String path) {
         String[] parts = path.split("_");
         StringBuilder sb = new StringBuilder(path.length() + 4);
-        for (int i = 0; i < parts.length; i++) {
-            String p = parts[i];
+        for (String p : parts) {
             if (p.isEmpty()) continue;
             if (sb.length() > 0) sb.append(' ');
             sb.append(Character.toUpperCase(p.charAt(0)));

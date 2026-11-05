@@ -26,17 +26,18 @@ import java.util.List;
 
 /**
  * Signature FLUX CLIENT Orange & Black Mod Menu GUI.
- * Includes Category Filtering, Live Search, 4-Column Module Cards, Per-Module Settings,
- * HUD PRESETS modal (6 presets), RESET ALL modal, and Low-End Device Optimizer panel.
+ * Features smooth animations, 4-column module cards, live search, per-module settings,
+ * scrollable single-column HUD PRESETS modal (6 layouts), RESET ALL confirmation modal,
+ * and a scrollable Low-End Optimizer panel tuned for 3 GB RAM Android / PojavLauncher & PC.
  */
 public class FluxModMenuScreen extends Screen {
-    public static final int ACCENT_ORANGE = 0xFFEE5A24;
-    public static final int ACCENT_ORANGE_HOVER = 0xFFFF6B35;
-    public static final int ENABLED_GREEN = 0xFF1F9D4C;
-    public static final int ENABLED_GREEN_HOVER = 0xFF26B85A;
-    public static final int PANEL_BG = 0xF40B0E12;
-    public static final int CARD_BG = 0xFF11151B;
-    public static final int CARD_BORDER = 0xFF202630;
+    public static final int ACCENT_ORANGE = 0xFFF05A24;
+    public static final int ACCENT_ORANGE_HOVER = 0xFFFF6D38;
+    public static final int ENABLED_GREEN = 0xFF1F7A38;
+    public static final int ENABLED_GREEN_HOVER = 0xFF269645;
+    public static final int PANEL_BG = 0xF50B0E12;
+    public static final int CARD_BG = 0xFF0E1217;
+    public static final int CARD_BORDER = 0xFF1C222B;
 
     private enum ModalState {
         NONE,
@@ -51,18 +52,30 @@ public class FluxModMenuScreen extends Screen {
     private String searchQuery = "";
     private boolean searchFocused = false;
 
-    private double scrollOffset = 0.0;
+    private double targetScroll = 0.0;
+    private double smoothScroll = 0.0;
     private double maxScroll = 0.0;
+
+    private double optScroll = 0.0;
+    private double maxOptScroll = 0.0;
+
+    private double presetsScroll = 0.0;
+    private double maxPresetsScroll = 0.0;
+
     private double settingsScroll = 0.0;
+
+    // Zero-allocation smooth toggle/hover animation arrays (22 modules)
+    private final float[] cardToggleAnim = new float[32];
+    private final float[] cardHoverAnim = new float[32];
+    private float modalAnim = 0.0f;
 
     private ModalState modalState = ModalState.NONE;
     private Module activeSettingsModule = null;
     private NumberSetting draggingSlider = null;
     private StringSetting editingStringSetting = null;
-
-    // Optimizer slider drag index (-1 = none)
     private int draggingOptSlider = -1;
 
+    private int navY;
     private int panelX;
     private int panelY;
     private int panelW;
@@ -75,10 +88,14 @@ public class FluxModMenuScreen extends Screen {
 
     @Override
     protected void init() {
-        this.panelW = Math.min(540, this.width - 20);
-        this.panelH = Math.min(312, this.height - 20);
+        int totalAvailH = this.height - 28;
+        int navBlockH = 28;
+        this.panelW = Math.min(536, this.width - 18);
+        this.panelH = Math.min(266, Math.max(170, totalAvailH - navBlockH));
         this.panelX = (this.width - this.panelW) / 2;
-        this.panelY = (this.height - this.panelH) / 2;
+        int combinedH = navBlockH + this.panelH;
+        this.navY = Math.max(6, (this.height - combinedH) / 2 - 2);
+        this.panelY = this.navY + navBlockH;
     }
 
     @Override
@@ -96,33 +113,48 @@ public class FluxModMenuScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Rendered explicitly inside render() for crisp dark overlay without double-blur cost.
+        // Rendered inside render() without heavy FBO Gaussian blur passes.
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         // Fullscreen dark backdrop
-        ctx.fill(0, 0, this.width, this.height, 0x88040609);
-
-        // Main outer panel
-        RenderUtils.drawRoundedBox(ctx, panelX, panelY, panelW, panelH, PANEL_BG, 0xFF262D37);
+        ctx.fill(0, 0, this.width, this.height, 0xA4030508);
 
         boolean modalOpen = modalState != ModalState.NONE;
+        modalAnim = RenderUtils.animate(modalAnim, modalOpen, delta, 0.38f);
+
         int effMouseX = modalOpen ? -1000 : mouseX;
         int effMouseY = modalOpen ? -1000 : mouseY;
 
-        renderTopHeader(ctx, effMouseX, effMouseY);
+        // 1. Separated Top Navigation Bar matching Screenshots 093503-093602
+        renderTopNavBar(ctx, effMouseX, effMouseY);
+
+        // 2. Main Dark Module / Optimizer Container
+        RenderUtils.drawRoundedBox(ctx, panelX, panelY, panelW, panelH, PANEL_BG, 0xFF1A2029);
 
         if (optimizerTabActive) {
             renderOptimizerPanel(ctx, effMouseX, effMouseY);
         } else {
             renderCategoryFilterBar(ctx, effMouseX, effMouseY);
-            renderModuleGrid(ctx, effMouseX, effMouseY);
+            renderModuleGrid(ctx, effMouseX, effMouseY, delta);
         }
 
-        // Render active modal on top
-        if (modalState != ModalState.NONE) {
-            ctx.fill(panelX + 1, panelY + 1, panelX + panelW - 1, panelY + panelH - 1, 0xB805070A);
+        // 3. Bottom-Center Version Label
+        if (panelY + panelH + 11 <= this.height) {
+            ctx.drawCenteredTextWithShadow(
+                    this.textRenderer,
+                    "Flux Client 1.21.11",
+                    this.width / 2,
+                    this.height - 10,
+                    0xFF7D8895
+            );
+        }
+
+        // 4. Active Modal Overlay
+        if (modalOpen) {
+            int dimAlpha = Math.round(0xB4 * Math.max(0.35f, modalAnim));
+            ctx.fill(panelX + 1, panelY + 1, panelX + panelW - 1, panelY + panelH - 1, (dimAlpha << 24) | 0x040609);
             switch (modalState) {
                 case RESET_ALL -> renderResetModal(ctx, mouseX, mouseY);
                 case HUD_PRESETS -> renderPresetsModal(ctx, mouseX, mouseY);
@@ -135,60 +167,66 @@ public class FluxModMenuScreen extends Screen {
         super.render(ctx, mouseX, mouseY, delta);
     }
 
-    private void renderTopHeader(DrawContext ctx, int mouseX, int mouseY) {
-        int headerY = panelY + 8;
-        int modTabX = panelX + 10;
-        int modTabW = 74;
-        int tabH = 20;
+    private void renderTopNavBar(DrawContext ctx, int mouseX, int mouseY) {
+        int tabH = 23;
+        int modTabX = panelX;
+        int modTabW = 86;
 
-        boolean modTabHov = RenderUtils.isHovered(mouseX, mouseY, modTabX, headerY, modTabW, tabH);
+        boolean modTabHov = RenderUtils.isHovered(mouseX, mouseY, modTabX, navY, modTabW, tabH);
         int modTabFill = !optimizerTabActive
                 ? (modTabHov ? ACCENT_ORANGE_HOVER : ACCENT_ORANGE)
-                : (modTabHov ? 0xFF1E242D : 0xFF151920);
-        RenderUtils.drawRoundedBox(ctx, modTabX, headerY, modTabW, tabH, modTabFill, !optimizerTabActive ? ACCENT_ORANGE_HOVER : CARD_BORDER);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "MOD MENU", modTabX + modTabW / 2, headerY + 6, 0xFFFFFFFF);
+                : (modTabHov ? 0xFF1D232C : 0xFF14181F);
+        int modTabBorder = !optimizerTabActive ? ACCENT_ORANGE_HOVER : 0xFF262E3A;
+        RenderUtils.drawRoundedBox(ctx, modTabX, navY, modTabW, tabH, modTabFill, modTabBorder);
+        RenderUtils.drawFourSquareIcon(ctx, modTabX + 13, navY + 11, 0xFFFFFFFF);
+        ctx.drawTextWithShadow(this.textRenderer, "MOD MENU", modTabX + 23, navY + 8, 0xFFFFFFFF);
 
-        // 6 top icon buttons matching reference screenshots: Settings, HUD Editor, Cosmetics, Optimizer, Quick Chat, Presets
+        // 6 top icon tabs: Settings, HUD Editor, Cosmetics, Low-End Optimizer, Quick Messages, HUD Presets
         int iconStartX = modTabX + modTabW + 6;
+        int iconBtnW = 26;
         for (int i = 0; i < 6; i++) {
-            int bx = iconStartX + i * 24;
-            boolean active = (i == 3 && optimizerTabActive);
-            boolean hov = RenderUtils.isHovered(mouseX, mouseY, bx, headerY, 20, tabH);
-            int fill = active ? ACCENT_ORANGE : (hov ? 0xFF1F2630 : 0xFF151920);
-            int border = active ? ACCENT_ORANGE_HOVER : (hov ? ACCENT_ORANGE : 0xFF262D38);
-            RenderUtils.drawRoundedBox(ctx, bx, headerY, 20, tabH, fill, border);
+            int bx = iconStartX + i * (iconBtnW + 5);
+            boolean active = (i == 3 && optimizerTabActive) || (i == 5 && modalState == ModalState.HUD_PRESETS);
+            boolean hov = RenderUtils.isHovered(mouseX, mouseY, bx, navY, iconBtnW, tabH);
+            int fill = active ? ACCENT_ORANGE : (hov ? 0xFF1E252F : 0xFF14181F);
+            int border = active ? ACCENT_ORANGE_HOVER : (hov ? ACCENT_ORANGE : 0xFF242C37);
+            RenderUtils.drawRoundedBox(ctx, bx, navY, iconBtnW, tabH, fill, border);
 
             int ic = (active || hov) ? 0xFFFFFFFF : 0xFFB8C2CE;
-            int icx = bx + 10;
-            int icy = headerY + 10;
+            int icx = bx + iconBtnW / 2;
+            int icy = navY + 11;
             switch (i) {
                 case 0 -> RenderUtils.drawGearIcon(ctx, icx, icy, ic);
                 case 1 -> RenderUtils.drawMonitorIcon(ctx, icx, icy, ic);
                 case 2 -> RenderUtils.drawHangerIcon(ctx, icx, icy, ic);
                 case 3 -> RenderUtils.drawGaugeIcon(ctx, icx, icy, ic);
                 case 4 -> RenderUtils.drawChatIcon(ctx, icx, icy, ic);
-                case 5 -> RenderUtils.drawPersonIcon(ctx, icx, icy, ic);
+                case 5 -> RenderUtils.drawPersonGearIcon(ctx, icx, icy, ic);
             }
         }
 
-        // Top-right orange-bordered [X] close button
-        int closeX = panelX + panelW - 30;
-        boolean closeHov = RenderUtils.isHovered(mouseX, mouseY, closeX, headerY, 20, tabH);
+        // Far-right orange-bordered [x] close button matching screenshots
+        int closeW = 24;
+        int closeX = panelX + panelW - closeW;
+        boolean closeHov = RenderUtils.isHovered(mouseX, mouseY, closeX, navY, closeW, tabH);
         RenderUtils.drawRoundedBox(
-                ctx, closeX, headerY, 20, tabH,
-                closeHov ? ACCENT_ORANGE : 0xFF151920,
+                ctx, closeX, navY, closeW, tabH,
+                closeHov ? ACCENT_ORANGE : 0xFF201310,
                 ACCENT_ORANGE
         );
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "x", closeX + 10, headerY + 6, 0xFFFFFFFF);
-
-        // Header divider line
-        ctx.fill(panelX + 8, panelY + 33, panelX + panelW - 8, panelY + 34, 0xFF1D232C);
+        ctx.drawCenteredTextWithShadow(
+                this.textRenderer,
+                "x",
+                closeX + closeW / 2,
+                navY + 7,
+                closeHov ? 0xFFFFFFFF : ACCENT_ORANGE
+        );
     }
 
     private void renderCategoryFilterBar(DrawContext ctx, int mouseX, int mouseY) {
-        int barY = panelY + 39;
-        int pillH = 18;
-        int cursorX = panelX + 10;
+        int barY = panelY + 9;
+        int pillH = 19;
+        int cursorX = panelX + 12;
 
         String[] catNames = {"All", "HUD", "Render", "Movement", "Player", "Utility"};
         ModuleCategory[] cats = {
@@ -204,78 +242,81 @@ public class FluxModMenuScreen extends Screen {
             int pw = this.textRenderer.getWidth(catNames[i]) + 14;
             boolean selected = (selectedCategory == cats[i]);
             boolean hov = RenderUtils.isHovered(mouseX, mouseY, cursorX, barY, pw, pillH);
-            int fill = selected ? ACCENT_ORANGE : (hov ? 0xFF1D232B : 0xFF14181F);
-            int border = selected ? ACCENT_ORANGE_HOVER : (hov ? 0xFF343E4D : 0xFF232A34);
+            int fill = selected ? ACCENT_ORANGE : (hov ? 0xFF1B212A : 0xFF12161D);
+            int border = selected ? ACCENT_ORANGE_HOVER : (hov ? 0xFF323C4A : 0xFF1E252F);
             RenderUtils.drawRoundedBox(ctx, cursorX, barY, pw, pillH, fill, border);
             ctx.drawCenteredTextWithShadow(
                     this.textRenderer,
                     catNames[i],
                     cursorX + pw / 2,
-                    barY + 5,
-                    selected ? 0xFFFFFFFF : 0xFFD0D8E2
+                    barY + 6,
+                    selected ? 0xFFFFFFFF : 0xFFC2CCD6
             );
             cursorX += pw + 4;
         }
 
-        // Right-aligned Search box, Presets button, Reset button
-        int searchW = Math.max(76, Math.min(112, panelX + panelW - 10 - (cursorX + 98)));
-        int searchX = panelX + panelW - 10 - searchW;
+        // Right-aligned Search box (with magnifier icon), Presets button, and Reset button
+        int searchW = Math.max(76, Math.min(106, panelX + panelW - 12 - (cursorX + 100)));
+        int searchX = panelX + panelW - 12 - searchW;
         boolean searchHov = RenderUtils.isHovered(mouseX, mouseY, searchX, barY, searchW, pillH);
         RenderUtils.drawRoundedBox(
                 ctx, searchX, barY, searchW, pillH,
-                0xFF12161C,
-                searchFocused ? ACCENT_ORANGE : (searchHov ? 0xFF3A4554 : 0xFF252C37)
+                0xFF10141B,
+                searchFocused ? ACCENT_ORANGE : (searchHov ? 0xFF384454 : 0xFF232B36)
         );
+        RenderUtils.drawSearchMagnifierIcon(ctx, searchX + 9, barY + 10, searchFocused ? ACCENT_ORANGE : 0xFF7D8896);
+
         String displaySearch = searchQuery.isEmpty()
                 ? (searchFocused ? "|" : "Search")
-                : RenderUtils.ellipsize(this.textRenderer, searchQuery + (searchFocused ? "|" : ""), searchW - 12);
-        int searchColor = searchQuery.isEmpty() && !searchFocused ? 0xFF7D8896 : 0xFFF0F5FA;
-        ctx.drawTextWithShadow(this.textRenderer, displaySearch, searchX + 6, barY + 5, searchColor);
+                : RenderUtils.ellipsize(this.textRenderer, searchQuery + (searchFocused ? "|" : ""), searchW - 22);
+        int searchColor = searchQuery.isEmpty() && !searchFocused ? 0xFF8A95A3 : 0xFFF2F6FA;
+        ctx.drawTextWithShadow(this.textRenderer, displaySearch, searchX + 17, barY + 6, searchColor);
 
-        int presetsW = 46;
-        int presetsX = searchX - presetsW - 4;
+        int presetsW = 50;
+        int presetsX = searchX - presetsW - 5;
+        boolean presetsActive = (modalState == ModalState.HUD_PRESETS);
         boolean presetsHov = RenderUtils.isHovered(mouseX, mouseY, presetsX, barY, presetsW, pillH);
         RenderUtils.drawRoundedBox(
                 ctx, presetsX, barY, presetsW, pillH,
-                presetsHov ? 0xFF222933 : 0xFF151A21,
-                presetsHov ? ACCENT_ORANGE : 0xFF262E3A
+                presetsActive ? ACCENT_ORANGE : (presetsHov ? 0xFF1E252F : 0xFF13171E),
+                presetsActive ? ACCENT_ORANGE_HOVER : (presetsHov ? ACCENT_ORANGE : 0xFF222A35)
         );
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "Presets", presetsX + presetsW / 2, barY + 5, 0xFFE4ECF5);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, "Presets", presetsX + presetsW / 2, barY + 6, 0xFFF2F6FA);
 
-        int resetW = 38;
-        int resetX = presetsX - resetW - 4;
+        int resetW = 42;
+        int resetX = presetsX - resetW - 5;
         if (resetX >= cursorX) {
+            boolean resetActive = (modalState == ModalState.RESET_ALL);
             boolean resetHov = RenderUtils.isHovered(mouseX, mouseY, resetX, barY, resetW, pillH);
             RenderUtils.drawRoundedBox(
                     ctx, resetX, barY, resetW, pillH,
-                    resetHov ? 0xFF222933 : 0xFF151A21,
-                    resetHov ? ACCENT_ORANGE : 0xFF262E3A
+                    resetActive ? ACCENT_ORANGE : (resetHov ? 0xFF1E252F : 0xFF13171E),
+                    resetActive ? ACCENT_ORANGE_HOVER : (resetHov ? ACCENT_ORANGE : 0xFF222A35)
             );
-            ctx.drawCenteredTextWithShadow(this.textRenderer, "Reset", resetX + resetW / 2, barY + 5, 0xFFE4ECF5);
+            ctx.drawCenteredTextWithShadow(this.textRenderer, "Reset", resetX + resetW / 2, barY + 6, 0xFFF2F6FA);
         }
     }
 
-    private void renderModuleGrid(DrawContext ctx, int mouseX, int mouseY) {
+    private void renderModuleGrid(DrawContext ctx, int mouseX, int mouseY, float delta) {
         List<Module> modules = ModuleManager.getInstance().getFiltered(selectedCategory, searchQuery);
 
-        int gridX = panelX + 10;
-        int gridY = panelY + 63;
-        int gridW = panelW - 24;
-        int gridH = panelH - 72;
+        int gridX = panelX + 12;
+        int gridY = panelY + 35;
+        int gridW = panelW - 28;
+        int gridH = panelH - 43;
 
-        int cols = gridW >= 420 ? 4 : (gridW >= 300 ? 3 : 2);
-        int gap = 7;
+        int cols = gridW >= 410 ? 4 : (gridW >= 290 ? 3 : 2);
+        int gap = 8;
         int cardW = (gridW - (cols - 1) * gap) / cols;
-        int cardH = 84;
+        int cardH = 88;
 
         int rows = (modules.size() + cols - 1) / cols;
         int contentH = Math.max(0, rows * cardH + Math.max(0, rows - 1) * gap);
         this.maxScroll = Math.max(0.0, contentH - gridH);
-        if (this.scrollOffset > this.maxScroll) {
-            this.scrollOffset = this.maxScroll;
-        }
-        if (this.scrollOffset < 0.0) {
-            this.scrollOffset = 0.0;
+        this.targetScroll = Math.max(0.0, Math.min(this.maxScroll, this.targetScroll));
+        this.smoothScroll += (this.targetScroll - this.smoothScroll) * Math.min(1.0, Math.max(0.15, delta * 0.42));
+        if (Math.abs(this.targetScroll - this.smoothScroll) < 0.25) {
+            this.smoothScroll = this.targetScroll;
         }
 
         ctx.enableScissor(gridX, gridY, gridX + gridW, gridY + gridH);
@@ -290,175 +331,211 @@ public class FluxModMenuScreen extends Screen {
             );
         }
 
+        List<Module> allModules = ModuleManager.getInstance().getAllModules();
+
         for (int i = 0; i < modules.size(); i++) {
             Module mod = modules.get(i);
+            int animIdx = Math.max(0, Math.min(cardToggleAnim.length - 1, allModules.indexOf(mod)));
+
             int col = i % cols;
             int row = i / cols;
-
             int cx = gridX + col * (cardW + gap);
-            int cy = gridY + row * (cardH + gap) - (int) Math.round(scrollOffset);
+            int cy = gridY + row * (cardH + gap) - (int) Math.round(smoothScroll);
+
+            boolean cardHov = RenderUtils.isHovered(mouseX, mouseY, cx, cy, cardW, cardH)
+                    && RenderUtils.isHovered(mouseX, mouseY, gridX, gridY, gridW, gridH);
+
+            cardToggleAnim[animIdx] = RenderUtils.animate(cardToggleAnim[animIdx], mod.isEnabled(), delta, 0.34f);
+            cardHoverAnim[animIdx] = RenderUtils.animate(cardHoverAnim[animIdx], cardHov, delta, 0.34f);
+
             if (cy + cardH < gridY || cy > gridY + gridH) {
                 continue;
             }
 
-            boolean cardHov = RenderUtils.isHovered(mouseX, mouseY, cx, cy, cardW, cardH)
-                    && RenderUtils.isHovered(mouseX, mouseY, gridX, gridY, gridW, gridH);
-            RenderUtils.drawRoundedBox(
-                    ctx, cx, cy, cardW, cardH,
-                    CARD_BG,
-                    cardHov ? 0xFF313B49 : CARD_BORDER
-            );
+            int borderCol = RenderUtils.lerpArgb(CARD_BORDER, 0xFF313D4D, cardHoverAnim[animIdx]);
+            RenderUtils.drawRoundedBox(ctx, cx, cy, cardW, cardH, CARD_BG, borderCol);
 
-            // Signature top orange highlight strip when enabled
-            if (mod.isEnabled()) {
-                ctx.fill(cx + 1, cy, cx + cardW - 1, cy + 2, ACCENT_ORANGE);
+            // Top orange accent border strip when enabled (smoothly animated)
+            if (cardToggleAnim[animIdx] > 0.02f) {
+                int barAlpha = Math.round(255 * cardToggleAnim[animIdx]);
+                ctx.fill(cx + 1, cy, cx + cardW - 1, cy + 2, (barAlpha << 24) | (ACCENT_ORANGE & 0x00FFFFFF));
             }
 
-            // Module Name
-            String title = RenderUtils.ellipsize(this.textRenderer, mod.getName(), cardW - 10);
-            ctx.drawCenteredTextWithShadow(this.textRenderer, title, cx + cardW / 2, cy + 8, 0xFFF2F6FA);
+            // Left-aligned Module Name matching reference screenshots
+            String title = RenderUtils.ellipsize(this.textRenderer, mod.getName(), cardW - 14);
+            ctx.drawTextWithShadow(this.textRenderer, title, cx + 8, cy + 9, 0xFFF2F6FA);
 
             // Centered Custom Module Icon
-            int iconColor = mod.isEnabled() ? 0xFFFFFFFF : 0xFFC5CFD9;
-            RenderUtils.drawModuleIcon(ctx, this.textRenderer, mod.getIcon(), cx + cardW / 2, cy + 38, iconColor);
+            int iconColor = RenderUtils.lerpArgb(0xFFB5BFC9, 0xFFFFFFFF, Math.max(cardToggleAnim[animIdx], cardHoverAnim[animIdx] * 0.6f));
+            RenderUtils.drawModuleIcon(ctx, this.textRenderer, mod.getIcon(), cx + cardW / 2, cy + 40, iconColor);
 
             // Bottom Action Row: [Gear] + [Enabled / Disabled]
-            int btnY = cy + cardH - 22;
-            int gearX = cx + 6;
-            int gearW = 18;
-            int btnH = 16;
+            int btnY = cy + cardH - 24;
+            int gearX = cx + 7;
+            int gearW = 19;
+            int btnH = 17;
             boolean gearHov = cardHov && RenderUtils.isHovered(mouseX, mouseY, gearX, btnY, gearW, btnH);
             RenderUtils.drawRoundedBox(
                     ctx, gearX, btnY, gearW, btnH,
-                    gearHov ? 0xFF242C37 : 0xFF181D25,
-                    gearHov ? ACCENT_ORANGE : 0xFF29313E
+                    gearHov ? 0xFF232B36 : 0xFF151920,
+                    gearHov ? ACCENT_ORANGE : 0xFF232A35
             );
-            RenderUtils.drawGearIcon(ctx, gearX + gearW / 2, btnY + btnH / 2, gearHov ? 0xFFFFFFFF : 0xFFAAB5C2);
+            RenderUtils.drawGearIcon(ctx, gearX + gearW / 2, btnY + btnH / 2, gearHov ? 0xFFFFFFFF : 0xFFA6B1BE);
 
-            int togX = gearX + gearW + 4;
-            int togW = cardW - 12 - gearW - 4;
+            int togX = gearX + gearW + 5;
+            int togW = cardW - 14 - gearW - 5;
             boolean togHov = cardHov && RenderUtils.isHovered(mouseX, mouseY, togX, btnY, togW, btnH);
-            int togFill = mod.isEnabled()
-                    ? (togHov ? ENABLED_GREEN_HOVER : ENABLED_GREEN)
-                    : (togHov ? 0xFF232A34 : 0xFF181D24);
-            int togBorder = mod.isEnabled() ? 0xFF2ECC71 : 0xFF28303C;
-            RenderUtils.drawRoundedBox(ctx, togX, btnY, togW, btnH, togFill, togBorder);
+            int baseTogFill = RenderUtils.lerpArgb(0xFF151920, ENABLED_GREEN, cardToggleAnim[animIdx]);
+            if (togHov) {
+                baseTogFill = mod.isEnabled() ? ENABLED_GREEN_HOVER : 0xFF1F2630;
+            }
+            int togBorder = RenderUtils.lerpArgb(0xFF232A35, 0xFF2CA852, cardToggleAnim[animIdx]);
+            RenderUtils.drawRoundedBox(ctx, togX, btnY, togW, btnH, baseTogFill, togBorder);
+
+            int labelCol = RenderUtils.lerpArgb(0xFFC0CAD5, 0xFF7BFF9F, cardToggleAnim[animIdx]);
             ctx.drawCenteredTextWithShadow(
                     this.textRenderer,
                     mod.isEnabled() ? "Enabled" : "Disabled",
                     togX + togW / 2,
-                    btnY + 4,
-                    mod.isEnabled() ? 0xFFFFFFFF : 0xFFB8C2CE
+                    btnY + 5,
+                    mod.isEnabled() ? 0xFF98FFB4 : labelCol
             );
         }
 
         ctx.disableScissor();
 
-        // Orange scrollbar on right edge matching Screenshots 3 & 4
+        // Right-side vertical scrollbar matching screenshots
         if (this.maxScroll > 0.0) {
-            int trackX = panelX + panelW - 8;
-            ctx.fill(trackX, gridY, trackX + 3, gridY + gridH, 0xFF181D24);
-            int thumbH = Math.max(24, (int) ((double) gridH * gridH / (double) contentH));
-            int thumbY = gridY + (int) ((scrollOffset / maxScroll) * (gridH - thumbH));
-            ctx.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, ACCENT_ORANGE);
+            int trackX = panelX + panelW - 9;
+            ctx.fill(trackX, gridY, trackX + 3, gridY + gridH, 0xFF151A22);
+            int thumbH = Math.max(22, (int) ((double) gridH * gridH / (double) contentH));
+            int thumbY = gridY + (int) ((smoothScroll / maxScroll) * (gridH - thumbH));
+            ctx.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, 0xFFE8432E);
         }
     }
 
     private void renderOptimizerPanel(DrawContext ctx, int mouseX, int mouseY) {
         LowEndOptimizer opt = LowEndOptimizer.getInstance();
         int x = panelX + 14;
-        int y = panelY + 42;
+        int y = panelY + 10;
         int w = panelW - 28;
 
-        ctx.drawTextWithShadow(this.textRenderer, "LOW-END & POJAVLAUNCHER OPTIMIZER", x, y, ACCENT_ORANGE);
+        ctx.drawTextWithShadow(this.textRenderer, "LOW-END & POJAVLAUNCHER OPTIMIZER", x, y + 2, ACCENT_ORANGE);
         ctx.drawTextWithShadow(
                 this.textRenderer,
-                "Real GPU/CPU draw-call & particle culling with zero fake FPS counters.",
-                x, y + 12, 0xFF9AA6B4
+                "Tuned for 3 GB RAM Android (Vivo 1916 / PojavLauncher) & low-end PCs",
+                x, y + 13, 0xFF8E9BA8
         );
 
-        // One-click Low-End Android Profile button
-        int profBtnW = 158;
+        int profBtnW = 148;
         int profBtnX = x + w - profBtnW;
-        boolean profHov = RenderUtils.isHovered(mouseX, mouseY, profBtnX, y, profBtnW, 20);
+        boolean profHov = RenderUtils.isHovered(mouseX, mouseY, profBtnX, y + 2, profBtnW, 19);
         RenderUtils.drawRoundedBox(
-                ctx, profBtnX, y, profBtnW, 20,
+                ctx, profBtnX, y + 2, profBtnW, 19,
                 profHov ? ACCENT_ORANGE_HOVER : ACCENT_ORANGE,
                 ACCENT_ORANGE_HOVER
         );
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "Apply Low-End Profile", profBtnX + profBtnW / 2, y + 6, 0xFFFFFFFF);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, "Apply Low-End Profile", profBtnX + profBtnW / 2, y + 8, 0xFFFFFFFF);
 
-        int rowY = y + 32;
-        int rowH = 26;
-        int gap = 5;
+        int listY = y + 28;
+        int listH = panelH - 38;
+        int rowH = 25;
+        int gap = 4;
+        int totalRows = 10;
+        int totalContentH = totalRows * (rowH + gap);
+        this.maxOptScroll = Math.max(0.0, totalContentH - listH);
+        this.optScroll = Math.max(0.0, Math.min(this.maxOptScroll, this.optScroll));
 
-        drawOptimizerToggleRow(ctx, x, rowY, w, rowH, "Entity Distance Culling",
+        ctx.enableScissor(x, listY, x + w, listY + listH);
+        int curY = listY - (int) Math.round(optScroll);
+        int step = rowH + gap;
+
+        drawOptimizerToggleRow(ctx, x, curY, w, rowH, "Entity Distance Culling",
                 "Skips distant passive/ambient/item entities while keeping players & bosses visible",
-                opt.isEntityCullingEnabled(), mouseX, mouseY);
+                opt.isEntityCullingEnabled(), mouseX, mouseY, listY, listY + listH);
+        curY += step;
 
-        rowY += rowH + gap;
-        drawOptimizerSliderRow(ctx, x, rowY, w, rowH, "Passive Entity Max Distance",
+        drawOptimizerSliderRow(ctx, x, curY, w, rowH, "Passive Entity Max Distance",
                 opt.getPassiveEntityMaxDistance() + " blocks",
                 (opt.getPassiveEntityMaxDistance() - 16.0) / (96.0 - 16.0));
+        curY += step;
 
-        rowY += rowH + gap;
-        drawOptimizerSliderRow(ctx, x, rowY, w, rowH, "Dropped Item / XP Max Distance",
+        drawOptimizerSliderRow(ctx, x, curY, w, rowH, "Dropped Item / XP Max Distance",
                 opt.getItemEntityMaxDistance() + " blocks",
                 (opt.getItemEntityMaxDistance() - 12.0) / (64.0 - 12.0));
+        curY += step;
 
-        rowY += rowH + gap;
-        drawOptimizerToggleRow(ctx, x, rowY, w, rowH, "Particle Burst & Distance Limiter",
-                "Prevents TNT, crystal, and weather particle floods from stalling mobile GPUs",
-                opt.isParticleLimiterEnabled(), mouseX, mouseY);
+        drawOptimizerToggleRow(ctx, x, curY, w, rowH, "Block Entity Distance Culling",
+                "Skips distant chests, signs, banners & skulls (keeps beacons & portals visible)",
+                opt.isBlockEntityCullingEnabled(), mouseX, mouseY, listY, listY + listH);
+        curY += step;
 
-        rowY += rowH + gap;
-        drawOptimizerSliderRow(ctx, x, rowY, w, rowH, "Max New Particles Per Tick",
+        drawOptimizerSliderRow(ctx, x, curY, w, rowH, "Block Entity Max Distance",
+                opt.getBlockEntityMaxDistance() + " blocks",
+                (opt.getBlockEntityMaxDistance() - 16.0) / (64.0 - 16.0));
+        curY += step;
+
+        drawOptimizerToggleRow(ctx, x, curY, w, rowH, "Particle Burst & Distance Limiter",
+                "Prevents explosion, crystal & weather particle floods from stalling mobile GPUs",
+                opt.isParticleLimiterEnabled(), mouseX, mouseY, listY, listY + listH);
+        curY += step;
+
+        drawOptimizerSliderRow(ctx, x, curY, w, rowH, "Max New Particles Per Tick",
                 opt.getMaxParticlesPerTick() + " / tick",
                 (opt.getMaxParticlesPerTick() - 10.0) / (200.0 - 10.0));
+        curY += step;
 
-        rowY += rowH + gap;
-        drawOptimizerSliderRow(ctx, x, rowY, w, rowH, "Particle Max Render Distance",
+        drawOptimizerSliderRow(ctx, x, curY, w, rowH, "Particle Max Render Distance",
                 opt.getParticleMaxDistance() + " blocks",
                 (opt.getParticleMaxDistance() - 12.0) / (64.0 - 12.0));
+        curY += step;
 
-        rowY += rowH + gap;
-        drawOptimizerToggleRow(ctx, x, rowY, w, rowH, "Unfocused Window FPS Limiter",
-                "Caps background frame rate (" + opt.getUnfocusedMaxFps() + " FPS) to reduce battery & thermal throttling",
-                opt.isUnfocusedFpsLimiter(), mouseX, mouseY);
+        drawOptimizerToggleRow(ctx, x, curY, w, rowH, "Skip Heavy Menu Gaussian Blur",
+                "Eliminates multi-pass menu FBO blur lag on PojavLauncher / GL4ES / mobile GPUs",
+                opt.isMenuBlurBypass(), mouseX, mouseY, listY, listY + listH);
+        curY += step;
+
+        drawOptimizerToggleRow(ctx, x, curY, w, rowH, "Unfocused Window FPS Limiter",
+                "Caps background frame rate (" + opt.getUnfocusedMaxFps() + " FPS) to save battery & reduce heat",
+                opt.isUnfocusedFpsLimiter(), mouseX, mouseY, listY, listY + listH);
+
+        ctx.disableScissor();
     }
 
     private void drawOptimizerToggleRow(DrawContext ctx, int x, int y, int w, int h,
-                                        String title, String subtitle, boolean enabled, int mouseX, int mouseY) {
+                                        String title, String subtitle, boolean enabled,
+                                        int mouseX, int mouseY, int clipTop, int clipBottom) {
+        if (y + h < clipTop || y > clipBottom) return;
         RenderUtils.drawRoundedBox(ctx, x, y, w, h, CARD_BG, CARD_BORDER);
         ctx.drawTextWithShadow(this.textRenderer, title, x + 8, y + 4, 0xFFF0F5FA);
         ctx.getMatrices().pushMatrix();
         ctx.getMatrices().translate(x + 8, y + 15);
-        ctx.getMatrices().scale(0.8f, 0.8f);
-        ctx.drawTextWithShadow(this.textRenderer, subtitle, 0, 0, 0xFF8894A2);
+        ctx.getMatrices().scale(0.78f, 0.78f);
+        ctx.drawTextWithShadow(this.textRenderer, RenderUtils.ellipsize(this.textRenderer, subtitle, (int) ((w - 84) / 0.78f)), 0, 0, 0xFF8692A0);
         ctx.getMatrices().popMatrix();
 
         int bx = x + w - 64;
-        int by = y + 5;
-        boolean hov = RenderUtils.isHovered(mouseX, mouseY, bx, by, 56, 16);
+        int by = y + 4;
+        boolean hov = mouseY >= clipTop && mouseY <= clipBottom && RenderUtils.isHovered(mouseX, mouseY, bx, by, 56, 17);
         RenderUtils.drawRoundedBox(
-                ctx, bx, by, 56, 16,
-                enabled ? (hov ? ENABLED_GREEN_HOVER : ENABLED_GREEN) : (hov ? 0xFF242C37 : 0xFF181D24),
-                enabled ? 0xFF2ECC71 : 0xFF2B3340
+                ctx, bx, by, 56, 17,
+                enabled ? (hov ? ENABLED_GREEN_HOVER : ENABLED_GREEN) : (hov ? 0xFF222A34 : 0xFF151A21),
+                enabled ? 0xFF2CA852 : 0xFF262E3A
         );
-        ctx.drawCenteredTextWithShadow(this.textRenderer, enabled ? "Enabled" : "Disabled", bx + 28, by + 4, 0xFFFFFFFF);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, enabled ? "Enabled" : "Disabled", bx + 28, by + 5, enabled ? 0xFF98FFB4 : 0xFFC2CCD6);
     }
 
     private void drawOptimizerSliderRow(DrawContext ctx, int x, int y, int w, int h,
                                         String title, String valLabel, double ratio) {
         RenderUtils.drawRoundedBox(ctx, x, y, w, h, CARD_BG, CARD_BORDER);
-        ctx.drawTextWithShadow(this.textRenderer, title, x + 8, y + 9, 0xFFE6EEF6);
+        ctx.drawTextWithShadow(this.textRenderer, title, x + 8, y + 8, 0xFFE6EEF6);
 
-        int sliderW = 130;
+        int sliderW = 126;
         int sliderX = x + w - sliderW - 10;
-        int sliderY = y + 14;
-        ctx.drawTextWithShadow(this.textRenderer, valLabel, sliderX - this.textRenderer.getWidth(valLabel) - 8, y + 9, ACCENT_ORANGE);
+        int sliderY = y + 12;
+        ctx.drawTextWithShadow(this.textRenderer, valLabel, sliderX - this.textRenderer.getWidth(valLabel) - 8, y + 8, ACCENT_ORANGE);
 
-        ctx.fill(sliderX, sliderY, sliderX + sliderW, sliderY + 4, 0xFF222933);
+        ctx.fill(sliderX, sliderY, sliderX + sliderW, sliderY + 4, 0xFF202732);
         int fillW = (int) Math.round(Math.max(0.0, Math.min(1.0, ratio)) * sliderW);
         ctx.fill(sliderX, sliderY, sliderX + fillW, sliderY + 4, ACCENT_ORANGE);
         ctx.fill(sliderX + fillW - 2, sliderY - 2, sliderX + fillW + 3, sliderY + 6, 0xFFFFFFFF);
@@ -467,126 +544,149 @@ public class FluxModMenuScreen extends Screen {
     // ==================== MODALS ====================
 
     private void renderResetModal(DrawContext ctx, int mouseX, int mouseY) {
-        int mw = 276;
-        int mh = 104;
+        int mw = Math.min(316, this.width - 28);
+        int mh = 100;
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
-        RenderUtils.drawRoundedBox(ctx, mx, my, mw, mh, 0xFA0E1217, 0xFF2C3542);
-        ctx.drawTextWithShadow(this.textRenderer, "RESET ALL", mx + 12, my + 11, 0xFFF2F6FA);
+        RenderUtils.drawRoundedBox(ctx, mx, my, mw, mh, 0xFC0C1015, 0xFF242D39);
+        ctx.drawTextWithShadow(this.textRenderer, "RESET ALL", mx + 12, my + 11, 0xFFF4F8FC);
+        ctx.drawTextWithShadow(
+                this.textRenderer,
+                RenderUtils.ellipsize(this.textRenderer, "Choose how much of your HUD setup should be reset.", mw - 38),
+                mx + 12, my + 24, 0xFF8894A2
+        );
 
-        int closeX = mx + mw - 26;
-        int closeY = my + 7;
-        boolean closeHov = RenderUtils.isHovered(mouseX, mouseY, closeX, closeY, 18, 18);
-        RenderUtils.drawRoundedBox(ctx, closeX, closeY, 18, 18, closeHov ? ACCENT_ORANGE : 0xFF161B22, ACCENT_ORANGE);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "x", closeX + 9, closeY + 5, 0xFFFFFFFF);
+        int closeX = mx + mw - 24;
+        int closeY = my + 8;
+        boolean closeHov = RenderUtils.isHovered(mouseX, mouseY, closeX, closeY, 16, 16);
+        RenderUtils.drawRoundedBox(ctx, closeX, closeY, 16, 16, closeHov ? ACCENT_ORANGE : 0xFF151A22, closeHov ? ACCENT_ORANGE_HOVER : 0xFF262F3C);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, "x", closeX + 8, closeY + 4, 0xFFDCE6F2);
 
-        int cardW = (mw - 30) / 2;
-        int cardH = 56;
-        int cardY = my + 34;
+        int cardW = (mw - 32) / 2;
+        int cardH = 42;
+        int cardY = my + 44;
 
-        // Left card: DEFAULTS (green border matching Screenshot 9)
-        int defX = mx + 10;
+        // Left card: DEFAULTS — Restore original setup
+        int defX = mx + 12;
         boolean defHov = RenderUtils.isHovered(mouseX, mouseY, defX, cardY, cardW, cardH);
         RenderUtils.drawRoundedBox(
                 ctx, defX, cardY, cardW, cardH,
-                defHov ? 0xFF14261D : 0xFF111816,
-                defHov ? 0xFF39E079 : 0xFF249E52
+                defHov ? 0xFF14211B : 0xFF11161C,
+                defHov ? 0xFF2ECC71 : 0xFF202A34
         );
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "DEFAULTS", defX + cardW / 2, cardY + 15, 0xFFF2F7FA);
-        ctx.getMatrices().pushMatrix();
-        ctx.getMatrices().translate(defX + cardW / 2, cardY + 32);
-        ctx.getMatrices().scale(0.8f, 0.8f);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "Restore original setup", 0, 0, 0xFF9AA8B6);
-        ctx.getMatrices().popMatrix();
+        ctx.drawTextWithShadow(this.textRenderer, "DEFAULTS", defX + 9, cardY + 9, 0xFFF4F8FC);
+        ctx.drawTextWithShadow(
+                this.textRenderer,
+                RenderUtils.ellipsize(this.textRenderer, "Restore original setup", cardW - 16),
+                defX + 9, cardY + 23, 0xFF8C98A6
+        );
 
-        // Right card: REMOVE ALL (crimson border matching Screenshot 9)
-        int remX = defX + cardW + 10;
+        // Right card: REMOVE ALL — Disable every module
+        int remX = defX + cardW + 8;
         boolean remHov = RenderUtils.isHovered(mouseX, mouseY, remX, cardY, cardW, cardH);
         RenderUtils.drawRoundedBox(
                 ctx, remX, cardY, cardW, cardH,
-                remHov ? 0xFF2A1417 : 0xFF191215,
-                remHov ? 0xFFFF525B : 0xFFB8323A
+                remHov ? 0xFF241417 : 0xFF13161C,
+                remHov ? 0xFFFF4D58 : 0xFF242D38
         );
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "REMOVE ALL", remX + cardW / 2, cardY + 15, 0xFFF2F7FA);
-        ctx.getMatrices().pushMatrix();
-        ctx.getMatrices().translate(remX + cardW / 2, cardY + 32);
-        ctx.getMatrices().scale(0.8f, 0.8f);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "Disable every module", 0, 0, 0xFF9AA8B6);
-        ctx.getMatrices().popMatrix();
+        ctx.drawTextWithShadow(this.textRenderer, "REMOVE ALL", remX + 9, cardY + 9, 0xFFF4F8FC);
+        ctx.drawTextWithShadow(
+                this.textRenderer,
+                RenderUtils.ellipsize(this.textRenderer, "Disable every module", cardW - 16),
+                remX + 9, cardY + 23, 0xFFDCE4EE
+        );
     }
 
+    /**
+     * Scrollable single-column vertical HUD PRESETS modal matching Screenshot_20261105_093602.jpg.
+     */
     private void renderPresetsModal(DrawContext ctx, int mouseX, int mouseY) {
-        int mw = Math.min(390, this.width - 28);
-        int mh = 186;
+        int mw = Math.min(346, this.width - 28);
+        int mh = Math.min(220, this.height - 22);
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
-        RenderUtils.drawRoundedBox(ctx, mx, my, mw, mh, 0xFA0E1217, 0xFF2C3542);
-        ctx.drawTextWithShadow(this.textRenderer, "HUD PRESETS", mx + 12, my + 11, 0xFFF2F6FA);
+        RenderUtils.drawRoundedBox(ctx, mx, my, mw, mh, 0xFC0B0F14, 0xFF242E3B);
+        ctx.drawTextWithShadow(this.textRenderer, "HUD PRESETS", mx + 12, my + 10, 0xFFF4F8FC);
 
-        // Save Custom snapshot button
-        int saveBtnW = 74;
-        int saveBtnX = mx + mw - 26 - saveBtnW - 6;
-        boolean saveHov = RenderUtils.isHovered(mouseX, mouseY, saveBtnX, my + 7, saveBtnW, 18);
-        RenderUtils.drawRoundedBox(ctx, saveBtnX, my + 7, saveBtnW, 18, saveHov ? 0xFF222A35 : 0xFF161B22, saveHov ? ACCENT_ORANGE : 0xFF2B3442);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "Save Custom", saveBtnX + saveBtnW / 2, my + 12, 0xFFDCE6F2);
+        String layoutsCount = "6 layouts";
+        int countW = this.textRenderer.getWidth(layoutsCount);
+        ctx.drawTextWithShadow(this.textRenderer, layoutsCount, mx + mw - 12 - countW, my + 23, 0xFF8894A2);
+        ctx.drawTextWithShadow(
+                this.textRenderer,
+                RenderUtils.ellipsize(this.textRenderer, "Apply a full-screen layout tuned for a specific playstyle.", mw - 30 - countW),
+                mx + 12, my + 23, 0xFF8894A2
+        );
 
-        int closeX = mx + mw - 26;
+        int closeX = mx + mw - 24;
         int closeY = my + 7;
-        boolean closeHov = RenderUtils.isHovered(mouseX, mouseY, closeX, closeY, 18, 18);
-        RenderUtils.drawRoundedBox(ctx, closeX, closeY, 18, 18, closeHov ? ACCENT_ORANGE : 0xFF161B22, ACCENT_ORANGE);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, "x", closeX + 9, closeY + 5, 0xFFFFFFFF);
+        boolean closeHov = RenderUtils.isHovered(mouseX, mouseY, closeX, closeY, 16, 16);
+        RenderUtils.drawRoundedBox(ctx, closeX, closeY, 16, 16, closeHov ? ACCENT_ORANGE : 0xFF151A22, closeHov ? ACCENT_ORANGE_HOVER : 0xFF262F3C);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, "x", closeX + 8, closeY + 4, 0xFFDCE6F2);
 
         List<HudPresetManager.PresetInfo> presets = HudPresetManager.PRESETS;
-        int cols = 2;
-        int gapX = 8;
-        int gapY = 7;
-        int cardW = (mw - 24 - gapX) / cols;
-        int cardH = 42;
-        int startY = my + 32;
+        int listX = mx + 10;
+        int listY = my + 37;
+        int listW = mw - 20;
+        int listH = mh - 45;
+        int rowH = 34;
+        int gap = 5;
+
+        int totalContentH = presets.size() * rowH + (presets.size() - 1) * gap;
+        this.maxPresetsScroll = Math.max(0.0, totalContentH - listH);
+        this.presetsScroll = Math.max(0.0, Math.min(this.maxPresetsScroll, this.presetsScroll));
+
+        ctx.enableScissor(listX, listY, listX + listW, listY + listH);
 
         for (int i = 0; i < presets.size(); i++) {
             HudPresetManager.PresetInfo p = presets.get(i);
-            int col = i % cols;
-            int row = i / cols;
-            int cx = mx + 12 + col * (cardW + gapX);
-            int cy = startY + row * (cardH + gapY);
+            int ry = listY + i * (rowH + gap) - (int) Math.round(presetsScroll);
+            if (ry + rowH < listY || ry > listY + listH) continue;
 
-            boolean hov = RenderUtils.isHovered(mouseX, mouseY, cx, cy, cardW, cardH);
-            RenderUtils.drawRoundedBox(ctx, cx, cy, cardW, cardH, 0xFF131820, hov ? 0xFF364252 : 0xFF232B36);
+            boolean rowHov = RenderUtils.isHovered(mouseX, mouseY, listX, ry, listW, rowH)
+                    && RenderUtils.isHovered(mouseX, mouseY, listX, listY, listW, listH);
+            RenderUtils.drawRoundedBox(ctx, listX, ry, listW, rowH, 0xFF11161E, rowHov ? 0xFF334050 : 0xFF1F2733);
 
-            // Number badge (01 .. 06)
-            RenderUtils.drawRoundedBox(ctx, cx + 6, cy + 6, 18, 14, 0xFF1B222C, 0xFF2B3544);
-            ctx.drawCenteredTextWithShadow(this.textRenderer, p.code(), cx + 15, cy + 9, ACCENT_ORANGE);
+            // Colored 3px left vertical accent bar matching Screenshot 093602
+            ctx.fill(listX, ry + 1, listX + 3, ry + rowH - 1, p.accentColor());
 
-            // Preset Title
-            ctx.drawTextWithShadow(this.textRenderer, p.name(), cx + 28, cy + 9, 0xFFF2F6FA);
+            // Colored 01..06 code on the left
+            ctx.drawTextWithShadow(this.textRenderer, p.code(), listX + 10, ry + 13, p.accentColor());
 
-            // Subtitle
-            ctx.getMatrices().pushMatrix();
-            ctx.getMatrices().translate(cx + 7, cy + 26);
-            ctx.getMatrices().scale(0.78f, 0.78f);
-            ctx.drawTextWithShadow(this.textRenderer, p.subtitle(), 0, 0, 0xFF8C99A8);
-            ctx.getMatrices().popMatrix();
+            boolean isCustom = "custom_layout".equals(p.id());
+            int applyW = 46;
+            int applyH = 18;
+            int applyX = listX + listW - applyW - 7;
+            int applyY = ry + 8;
 
-            // APPLY button
-            int applyW = 40;
-            int applyH = 16;
-            int applyX = cx + cardW - applyW - 6;
-            int applyY = cy + 6;
-            boolean applyHov = RenderUtils.isHovered(mouseX, mouseY, applyX, applyY, applyW, applyH);
+            int saveW = isCustom ? 40 : 0;
+            int saveX = applyX - saveW - 4;
+            int maxTextW = (isCustom ? saveX : applyX) - (listX + 32) - 8;
+
+            ctx.drawTextWithShadow(this.textRenderer, p.name(), listX + 32, ry + 7, 0xFFF2F6FA);
+            ctx.drawTextWithShadow(
+                    this.textRenderer,
+                    RenderUtils.ellipsize(this.textRenderer, p.subtitle(), maxTextW),
+                    listX + 32, ry + 19, 0xFF83909E
+            );
+
+            if (isCustom) {
+                boolean saveHov = rowHov && RenderUtils.isHovered(mouseX, mouseY, saveX, applyY, saveW, applyH);
+                RenderUtils.drawRoundedBox(ctx, saveX, applyY, saveW, applyH, saveHov ? 0xFF222D3A : 0xFF171E27, saveHov ? p.accentColor() : 0xFF2B3544);
+                ctx.drawCenteredTextWithShadow(this.textRenderer, "SAVE", saveX + saveW / 2, applyY + 5, 0xFFDCE6F2);
+            }
+
+            boolean applyHov = rowHov && RenderUtils.isHovered(mouseX, mouseY, applyX, applyY, applyW, applyH);
             RenderUtils.drawRoundedBox(
                     ctx, applyX, applyY, applyW, applyH,
-                    applyHov ? ACCENT_ORANGE : 0xFF1A212B,
-                    applyHov ? ACCENT_ORANGE_HOVER : 0xFF303A48
+                    applyHov ? ACCENT_ORANGE : 0xFF19202A,
+                    applyHov ? ACCENT_ORANGE_HOVER : 0xFF2B3544
             );
-            ctx.getMatrices().pushMatrix();
-            ctx.getMatrices().translate(applyX + applyW / 2, applyY + 5);
-            ctx.getMatrices().scale(0.82f, 0.82f);
-            ctx.drawCenteredTextWithShadow(this.textRenderer, "APPLY", 0, 0, 0xFFFFFFFF);
-            ctx.getMatrices().popMatrix();
+            ctx.drawCenteredTextWithShadow(this.textRenderer, "APPLY", applyX + applyW / 2, applyY + 5, 0xFFE8F0F8);
         }
+
+        ctx.disableScissor();
     }
 
     private void renderModuleSettingsModal(DrawContext ctx, int mouseX, int mouseY) {
@@ -594,20 +694,19 @@ public class FluxModMenuScreen extends Screen {
             modalState = ModalState.NONE;
             return;
         }
-        int mw = Math.min(360, this.width - 30);
-        int mh = Math.min(230, this.height - 30);
+        int mw = Math.min(360, this.width - 28);
+        int mh = Math.min(224, this.height - 24);
         int mx = (this.width - mw) / 2;
         int my = (this.height - mh) / 2;
 
-        RenderUtils.drawRoundedBox(ctx, mx, my, mw, mh, 0xFA0E1217, 0xFF2E3846);
+        RenderUtils.drawRoundedBox(ctx, mx, my, mw, mh, 0xFC0C1016, 0xFF2A3442);
         ctx.drawTextWithShadow(this.textRenderer, activeSettingsModule.getName().toUpperCase() + " SETTINGS", mx + 12, my + 10, ACCENT_ORANGE);
         ctx.getMatrices().pushMatrix();
         ctx.getMatrices().translate(mx + 12, my + 21);
         ctx.getMatrices().scale(0.8f, 0.8f);
-        ctx.drawTextWithShadow(this.textRenderer, activeSettingsModule.getDescription(), 0, 0, 0xFF8E9BA8);
+        ctx.drawTextWithShadow(this.textRenderer, RenderUtils.ellipsize(this.textRenderer, activeSettingsModule.getDescription(), (int) ((mw - 105) / 0.8f)), 0, 0, 0xFF8E9BA8);
         ctx.getMatrices().popMatrix();
 
-        // If HUD module, offer "Move HUD" button
         if (activeSettingsModule instanceof HudModule && this.client != null) {
             int moveW = 58;
             int moveX = mx + mw - 26 - moveW - 6;
@@ -632,8 +731,7 @@ public class FluxModMenuScreen extends Screen {
 
         int totalH = settings.size() * (rowH + gap);
         double maxSetScroll = Math.max(0.0, totalH - listH);
-        if (settingsScroll > maxSetScroll) settingsScroll = maxSetScroll;
-        if (settingsScroll < 0.0) settingsScroll = 0.0;
+        settingsScroll = Math.max(0.0, Math.min(maxSetScroll, settingsScroll));
 
         ctx.enableScissor(listX, listY, listX + listW, listY + listH);
 
@@ -642,7 +740,7 @@ public class FluxModMenuScreen extends Screen {
             int ry = listY + i * (rowH + gap) - (int) Math.round(settingsScroll);
             if (ry + rowH < listY || ry > listY + listH) continue;
 
-            RenderUtils.drawRoundedBox(ctx, listX, ry, listW, rowH, 0xFF141920, 0xFF242C38);
+            RenderUtils.drawRoundedBox(ctx, listX, ry, listW, rowH, 0xFF131820, 0xFF232B37);
             ctx.drawTextWithShadow(this.textRenderer, s.getName(), listX + 8, ry + 8, 0xFFE6EEF6);
 
             if (s instanceof BooleanSetting bs) {
@@ -651,8 +749,8 @@ public class FluxModMenuScreen extends Screen {
                 boolean hov = RenderUtils.isHovered(mouseX, mouseY, bx, by, 46, 16);
                 RenderUtils.drawRoundedBox(
                         ctx, bx, by, 46, 16,
-                        bs.getValue() ? (hov ? ENABLED_GREEN_HOVER : ENABLED_GREEN) : (hov ? 0xFF252E3A : 0xFF1A2029),
-                        bs.getValue() ? 0xFF2ECC71 : 0xFF2D3644
+                        bs.getValue() ? (hov ? ENABLED_GREEN_HOVER : ENABLED_GREEN) : (hov ? 0xFF252E3A : 0xFF191F28),
+                        bs.getValue() ? 0xFF2CA852 : 0xFF2C3543
                 );
                 ctx.drawCenteredTextWithShadow(this.textRenderer, bs.getValue() ? "ON" : "OFF", bx + 23, by + 4, 0xFFFFFFFF);
             } else if (s instanceof ModeSetting ms) {
@@ -710,18 +808,20 @@ public class FluxModMenuScreen extends Screen {
             return handleModalClick(mx, my, button);
         }
 
-        // Top header bar
-        int headerY = panelY + 8;
-        int modTabX = panelX + 10;
-        if (RenderUtils.isHovered(mx, my, modTabX, headerY, 74, 20)) {
+        // 1. Top Nav Bar
+        int tabH = 23;
+        int modTabX = panelX;
+        int modTabW = 86;
+        if (RenderUtils.isHovered(mx, my, modTabX, navY, modTabW, tabH)) {
             optimizerTabActive = false;
             return true;
         }
 
-        int iconStartX = modTabX + 80;
+        int iconStartX = modTabX + modTabW + 6;
+        int iconBtnW = 26;
         for (int i = 0; i < 6; i++) {
-            int bx = iconStartX + i * 24;
-            if (RenderUtils.isHovered(mx, my, bx, headerY, 20, 20)) {
+            int bx = iconStartX + i * (iconBtnW + 5);
+            if (RenderUtils.isHovered(mx, my, bx, navY, iconBtnW, tabH)) {
                 if (this.client == null) return true;
                 switch (i) {
                     case 0 -> this.client.setScreen(new OptionsScreen(this, this.client.options));
@@ -729,13 +829,17 @@ public class FluxModMenuScreen extends Screen {
                     case 2 -> this.client.setScreen(new FluxCosmeticsScreen(this));
                     case 3 -> optimizerTabActive = !optimizerTabActive;
                     case 4 -> this.client.setScreen(new QuickMessagesScreen(this));
-                    case 5 -> modalState = ModalState.HUD_PRESETS;
+                    case 5 -> {
+                        presetsScroll = 0.0;
+                        modalState = ModalState.HUD_PRESETS;
+                    }
                 }
                 return true;
             }
         }
 
-        if (RenderUtils.isHovered(mx, my, panelX + panelW - 30, headerY, 20, 20)) {
+        int closeW = 24;
+        if (RenderUtils.isHovered(mx, my, panelX + panelW - closeW, navY, closeW, tabH)) {
             this.close();
             return true;
         }
@@ -744,10 +848,10 @@ public class FluxModMenuScreen extends Screen {
             return handleOptimizerClick(mx, my);
         }
 
-        // Category bar & Search / Presets / Reset
-        int barY = panelY + 39;
-        int pillH = 18;
-        int cursorX = panelX + 10;
+        // 2. Category Bar & Search / Presets / Reset
+        int barY = panelY + 9;
+        int pillH = 19;
+        int cursorX = panelX + 12;
         String[] catNames = {"All", "HUD", "Render", "Movement", "Player", "Utility"};
         ModuleCategory[] cats = {
                 null,
@@ -762,15 +866,16 @@ public class FluxModMenuScreen extends Screen {
             int pw = this.textRenderer.getWidth(catNames[i]) + 14;
             if (RenderUtils.isHovered(mx, my, cursorX, barY, pw, pillH)) {
                 selectedCategory = cats[i];
-                scrollOffset = 0.0;
+                targetScroll = 0.0;
+                smoothScroll = 0.0;
                 searchFocused = false;
                 return true;
             }
             cursorX += pw + 4;
         }
 
-        int searchW = Math.max(76, Math.min(112, panelX + panelW - 10 - (cursorX + 98)));
-        int searchX = panelX + panelW - 10 - searchW;
+        int searchW = Math.max(76, Math.min(106, panelX + panelW - 12 - (cursorX + 100)));
+        int searchX = panelX + panelW - 12 - searchW;
         if (RenderUtils.isHovered(mx, my, searchX, barY, searchW, pillH)) {
             searchFocused = true;
             if (button == 1) {
@@ -780,47 +885,48 @@ public class FluxModMenuScreen extends Screen {
         }
         searchFocused = false;
 
-        int presetsW = 46;
-        int presetsX = searchX - presetsW - 4;
+        int presetsW = 50;
+        int presetsX = searchX - presetsW - 5;
         if (RenderUtils.isHovered(mx, my, presetsX, barY, presetsW, pillH)) {
+            presetsScroll = 0.0;
             modalState = ModalState.HUD_PRESETS;
             return true;
         }
 
-        int resetW = 38;
-        int resetX = presetsX - resetW - 4;
+        int resetW = 42;
+        int resetX = presetsX - resetW - 5;
         if (resetX >= cursorX && RenderUtils.isHovered(mx, my, resetX, barY, resetW, pillH)) {
             modalState = ModalState.RESET_ALL;
             return true;
         }
 
-        // Module cards
+        // 3. Module Cards
         List<Module> modules = ModuleManager.getInstance().getFiltered(selectedCategory, searchQuery);
-        int gridX = panelX + 10;
-        int gridY = panelY + 63;
-        int gridW = panelW - 24;
-        int gridH = panelH - 72;
+        int gridX = panelX + 12;
+        int gridY = panelY + 35;
+        int gridW = panelW - 28;
+        int gridH = panelH - 43;
 
         if (!RenderUtils.isHovered(mx, my, gridX, gridY, gridW, gridH)) {
             return super.mouseClicked(click, doubled);
         }
 
-        int cols = gridW >= 420 ? 4 : (gridW >= 300 ? 3 : 2);
-        int gap = 7;
+        int cols = gridW >= 410 ? 4 : (gridW >= 290 ? 3 : 2);
+        int gap = 8;
         int cardW = (gridW - (cols - 1) * gap) / cols;
-        int cardH = 84;
+        int cardH = 88;
 
         for (int i = 0; i < modules.size(); i++) {
             Module mod = modules.get(i);
             int col = i % cols;
             int row = i / cols;
             int cx = gridX + col * (cardW + gap);
-            int cy = gridY + row * (cardH + gap) - (int) Math.round(scrollOffset);
+            int cy = gridY + row * (cardH + gap) - (int) Math.round(smoothScroll);
 
             if (RenderUtils.isHovered(mx, my, cx, cy, cardW, cardH)) {
-                int btnY = cy + cardH - 22;
-                int gearX = cx + 6;
-                if (button == 1 || RenderUtils.isHovered(mx, my, gearX, btnY, 18, 16)) {
+                int btnY = cy + cardH - 24;
+                int gearX = cx + 7;
+                if (button == 1 || RenderUtils.isHovered(mx, my, gearX, btnY, 19, 17)) {
                     activeSettingsModule = mod;
                     settingsScroll = 0.0;
                     editingStringSetting = null;
@@ -839,59 +945,70 @@ public class FluxModMenuScreen extends Screen {
     private boolean handleOptimizerClick(double mx, double my) {
         LowEndOptimizer opt = LowEndOptimizer.getInstance();
         int x = panelX + 14;
-        int y = panelY + 42;
+        int y = panelY + 10;
         int w = panelW - 28;
 
-        int profBtnW = 158;
-        if (RenderUtils.isHovered(mx, my, x + w - profBtnW, y, profBtnW, 20)) {
+        int profBtnW = 148;
+        if (RenderUtils.isHovered(mx, my, x + w - profBtnW, y + 2, profBtnW, 19)) {
             opt.applyLowEndVideoProfile(this.client);
             return true;
         }
 
-        int rowY = y + 32;
-        int rowH = 26;
-        int step = rowH + 5;
+        int listY = y + 28;
+        int listH = panelH - 38;
+        if (!RenderUtils.isHovered(mx, my, x, listY, w, listH)) {
+            return false;
+        }
 
-        // Row 0: Entity Culling toggle
-        if (RenderUtils.isHovered(mx, my, x + w - 64, rowY + 5, 56, 16)) {
-            opt.setEntityCullingEnabled(!opt.isEntityCullingEnabled());
-            FluxConfigManager.saveAsync();
-            return true;
-        }
-        // Row 1: Passive Max Dist slider
-        if (RenderUtils.isHovered(mx, my, x + w - 140, rowY + step, 134, rowH)) {
-            draggingOptSlider = 1;
-            updateOptimizerSlider(mx, x + w - 140, 130);
-            return true;
-        }
-        // Row 2: Item Max Dist slider
-        if (RenderUtils.isHovered(mx, my, x + w - 140, rowY + step * 2, 134, rowH)) {
-            draggingOptSlider = 2;
-            updateOptimizerSlider(mx, x + w - 140, 130);
-            return true;
-        }
-        // Row 3: Particle Limiter toggle
-        if (RenderUtils.isHovered(mx, my, x + w - 64, rowY + step * 3 + 5, 56, 16)) {
-            opt.setParticleLimiterEnabled(!opt.isParticleLimiterEnabled());
-            FluxConfigManager.saveAsync();
-            return true;
-        }
-        // Row 4: Max Particles/Tick slider
-        if (RenderUtils.isHovered(mx, my, x + w - 140, rowY + step * 4, 134, rowH)) {
-            draggingOptSlider = 4;
-            updateOptimizerSlider(mx, x + w - 140, 130);
-            return true;
-        }
-        // Row 5: Particle Max Dist slider
-        if (RenderUtils.isHovered(mx, my, x + w - 140, rowY + step * 5, 134, rowH)) {
-            draggingOptSlider = 5;
-            updateOptimizerSlider(mx, x + w - 140, 130);
-            return true;
-        }
-        // Row 6: Unfocused FPS Limiter toggle
-        if (RenderUtils.isHovered(mx, my, x + w - 64, rowY + step * 6 + 5, 56, 16)) {
-            opt.setUnfocusedFpsLimiter(!opt.isUnfocusedFpsLimiter());
-            FluxConfigManager.saveAsync();
+        int rowH = 25;
+        int step = rowH + 4;
+        int baseRowY = listY - (int) Math.round(optScroll);
+
+        for (int row = 0; row < 10; row++) {
+            int ry = baseRowY + row * step;
+            if (!RenderUtils.isHovered(mx, my, x, ry, w, rowH)) {
+                continue;
+            }
+            switch (row) {
+                case 0 -> {
+                    if (RenderUtils.isHovered(mx, my, x + w - 64, ry + 4, 56, 17)) {
+                        opt.setEntityCullingEnabled(!opt.isEntityCullingEnabled());
+                        FluxConfigManager.saveAsync();
+                    }
+                }
+                case 3 -> {
+                    if (RenderUtils.isHovered(mx, my, x + w - 64, ry + 4, 56, 17)) {
+                        opt.setBlockEntityCullingEnabled(!opt.isBlockEntityCullingEnabled());
+                        FluxConfigManager.saveAsync();
+                    }
+                }
+                case 5 -> {
+                    if (RenderUtils.isHovered(mx, my, x + w - 64, ry + 4, 56, 17)) {
+                        opt.setParticleLimiterEnabled(!opt.isParticleLimiterEnabled());
+                        FluxConfigManager.saveAsync();
+                    }
+                }
+                case 8 -> {
+                    if (RenderUtils.isHovered(mx, my, x + w - 64, ry + 4, 56, 17)) {
+                        opt.setMenuBlurBypass(!opt.isMenuBlurBypass());
+                        FluxConfigManager.saveAsync();
+                    }
+                }
+                case 9 -> {
+                    if (RenderUtils.isHovered(mx, my, x + w - 64, ry + 4, 56, 17)) {
+                        opt.setUnfocusedFpsLimiter(!opt.isUnfocusedFpsLimiter());
+                        FluxConfigManager.saveAsync();
+                    }
+                }
+                case 1, 2, 4, 6, 7 -> {
+                    int sliderW = 126;
+                    int sliderX = x + w - sliderW - 10;
+                    if (mx >= sliderX - 6 && mx <= sliderX + sliderW + 6) {
+                        draggingOptSlider = row;
+                        updateOptimizerSlider(mx, sliderX, sliderW);
+                    }
+                }
+            }
             return true;
         }
 
@@ -904,26 +1021,27 @@ public class FluxModMenuScreen extends Screen {
         switch (draggingOptSlider) {
             case 1 -> opt.setPassiveEntityMaxDistance((int) Math.round(16 + ratio * (96 - 16)));
             case 2 -> opt.setItemEntityMaxDistance((int) Math.round(12 + ratio * (64 - 12)));
-            case 4 -> opt.setMaxParticlesPerTick((int) Math.round(10 + ratio * (200 - 10)));
-            case 5 -> opt.setParticleMaxDistance((int) Math.round(12 + ratio * (64 - 12)));
+            case 4 -> opt.setBlockEntityMaxDistance((int) Math.round(16 + ratio * (64 - 16)));
+            case 6 -> opt.setMaxParticlesPerTick((int) Math.round(10 + ratio * (200 - 10)));
+            case 7 -> opt.setParticleMaxDistance((int) Math.round(12 + ratio * (64 - 12)));
         }
     }
 
     private boolean handleModalClick(double mx, double my, int button) {
         if (modalState == ModalState.RESET_ALL) {
-            int mw = 276;
-            int mh = 104;
+            int mw = Math.min(316, this.width - 28);
+            int mh = 100;
             int rx = (this.width - mw) / 2;
             int ry = (this.height - mh) / 2;
-            if (RenderUtils.isHovered(mx, my, rx + mw - 26, ry + 7, 18, 18)
+            if (RenderUtils.isHovered(mx, my, rx + mw - 24, ry + 8, 16, 16)
                     || !RenderUtils.isHovered(mx, my, rx, ry, mw, mh)) {
                 modalState = ModalState.NONE;
                 return true;
             }
-            int cardW = (mw - 30) / 2;
-            int cardH = 56;
-            int cardY = ry + 34;
-            if (RenderUtils.isHovered(mx, my, rx + 10, cardY, cardW, cardH)) {
+            int cardW = (mw - 32) / 2;
+            int cardH = 42;
+            int cardY = ry + 44;
+            if (RenderUtils.isHovered(mx, my, rx + 12, cardY, cardW, cardH)) {
                 HudPresetManager.resetToDefaults();
                 modalState = ModalState.NONE;
                 return true;
@@ -937,49 +1055,58 @@ public class FluxModMenuScreen extends Screen {
         }
 
         if (modalState == ModalState.HUD_PRESETS) {
-            int mw = Math.min(390, this.width - 28);
-            int mh = 186;
+            int mw = Math.min(346, this.width - 28);
+            int mh = Math.min(220, this.height - 22);
             int px = (this.width - mw) / 2;
             int py = (this.height - mh) / 2;
 
-            if (RenderUtils.isHovered(mx, my, px + mw - 26, py + 7, 18, 18)
+            if (RenderUtils.isHovered(mx, my, px + mw - 24, py + 7, 16, 16)
                     || !RenderUtils.isHovered(mx, my, px, py, mw, mh)) {
                 modalState = ModalState.NONE;
                 return true;
             }
 
-            int saveBtnW = 74;
-            int saveBtnX = px + mw - 26 - saveBtnW - 6;
-            if (RenderUtils.isHovered(mx, my, saveBtnX, py + 7, saveBtnW, 18)) {
-                HudPresetManager.captureCurrentAsCustomLayout();
-                FluxConfigManager.saveAsync();
-                FluxNotificationOverlay.push("Custom Layout", "Saved current HUD layout to Slot 06", FluxNotificationOverlay.Type.SUCCESS);
+            List<HudPresetManager.PresetInfo> presets = HudPresetManager.PRESETS;
+            int listX = px + 10;
+            int listY = py + 37;
+            int listW = mw - 20;
+            int listH = mh - 45;
+            int rowH = 34;
+            int gap = 5;
+
+            if (!RenderUtils.isHovered(mx, my, listX, listY, listW, listH)) {
                 return true;
             }
 
-            List<HudPresetManager.PresetInfo> presets = HudPresetManager.PRESETS;
-            int gapX = 8;
-            int gapY = 7;
-            int cardW = (mw - 24 - gapX) / 2;
-            int cardH = 42;
-            int startY = py + 32;
             for (int i = 0; i < presets.size(); i++) {
-                int col = i % 2;
-                int row = i / 2;
-                int cx = px + 12 + col * (cardW + gapX);
-                int cy = startY + row * (cardH + gapY);
-                if (RenderUtils.isHovered(mx, my, cx, cy, cardW, cardH)) {
-                    HudPresetManager.applyPreset(presets.get(i).id());
-                    modalState = ModalState.NONE;
-                    return true;
+                HudPresetManager.PresetInfo p = presets.get(i);
+                int ry = listY + i * (rowH + gap) - (int) Math.round(presetsScroll);
+                if (!RenderUtils.isHovered(mx, my, listX, ry, listW, rowH)) {
+                    continue;
                 }
+                boolean isCustom = "custom_layout".equals(p.id());
+                int applyW = 46;
+                int applyH = 18;
+                int applyX = listX + listW - applyW - 7;
+                int applyY = ry + 8;
+                if (isCustom) {
+                    int saveW = 40;
+                    int saveX = applyX - saveW - 4;
+                    if (RenderUtils.isHovered(mx, my, saveX, applyY, saveW, applyH)) {
+                        HudPresetManager.saveCustomLayout(true);
+                        return true;
+                    }
+                }
+                HudPresetManager.applyPreset(p.id());
+                modalState = ModalState.NONE;
+                return true;
             }
             return true;
         }
 
         if (modalState == ModalState.MODULE_SETTINGS && activeSettingsModule != null) {
-            int mw = Math.min(360, this.width - 30);
-            int mh = Math.min(230, this.height - 30);
+            int mw = Math.min(360, this.width - 28);
+            int mh = Math.min(224, this.height - 24);
             int sx = (this.width - mw) / 2;
             int sy = (this.height - mh) / 2;
 
@@ -1048,7 +1175,7 @@ public class FluxModMenuScreen extends Screen {
     @Override
     public boolean mouseDragged(Click click, double offsetX, double offsetY) {
         if (draggingSlider != null && modalState == ModalState.MODULE_SETTINGS) {
-            int mw = Math.min(360, this.width - 30);
+            int mw = Math.min(360, this.width - 28);
             int sx = (this.width - mw) / 2;
             int listX = sx + 10;
             int listW = mw - 20;
@@ -1061,7 +1188,8 @@ public class FluxModMenuScreen extends Screen {
         if (draggingOptSlider > 0 && optimizerTabActive) {
             int x = panelX + 14;
             int w = panelW - 28;
-            updateOptimizerSlider(click.x(), x + w - 140, 130);
+            int sliderW = 126;
+            updateOptimizerSlider(click.x(), x + w - sliderW - 10, sliderW);
             return true;
         }
         return super.mouseDragged(click, offsetX, offsetY);
@@ -1084,8 +1212,16 @@ public class FluxModMenuScreen extends Screen {
             settingsScroll -= verticalAmount * 18.0;
             return true;
         }
-        if (modalState == ModalState.NONE && !optimizerTabActive) {
-            scrollOffset = Math.max(0.0, Math.min(maxScroll, scrollOffset - verticalAmount * 22.0));
+        if (modalState == ModalState.HUD_PRESETS) {
+            presetsScroll = Math.max(0.0, Math.min(maxPresetsScroll, presetsScroll - verticalAmount * 20.0));
+            return true;
+        }
+        if (modalState == ModalState.NONE && optimizerTabActive) {
+            optScroll = Math.max(0.0, Math.min(maxOptScroll, optScroll - verticalAmount * 20.0));
+            return true;
+        }
+        if (modalState == ModalState.NONE) {
+            targetScroll = Math.max(0.0, Math.min(maxScroll, targetScroll - verticalAmount * 24.0));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
@@ -1128,7 +1264,8 @@ public class FluxModMenuScreen extends Screen {
             if (input.getKeycode() == GLFW.GLFW_KEY_BACKSPACE) {
                 if (!searchQuery.isEmpty()) {
                     searchQuery = searchQuery.substring(0, searchQuery.length() - 1);
-                    scrollOffset = 0.0;
+                    targetScroll = 0.0;
+                    smoothScroll = 0.0;
                 }
                 return true;
             }
@@ -1154,7 +1291,8 @@ public class FluxModMenuScreen extends Screen {
         }
         if (searchFocused && searchQuery.length() < 28) {
             searchQuery += ch;
-            scrollOffset = 0.0;
+            targetScroll = 0.0;
+            smoothScroll = 0.0;
             return true;
         }
         return super.charTyped(input);

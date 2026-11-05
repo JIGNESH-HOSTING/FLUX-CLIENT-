@@ -41,13 +41,13 @@ public class FluxCosmeticsScreen extends Screen {
         ctx.fill(0, 0, this.width, this.height, 0x9904070C);
 
         int pw = Math.min(430, this.width - 24);
-        int ph = Math.min(238, this.height - 24);
+        int ph = Math.min(236, this.height - 14);
         int px = (this.width - pw) / 2;
         int py = (this.height - ph) / 2;
 
         RenderUtils.drawRoundedBox(ctx, px, py, pw, ph, FluxModMenuScreen.PANEL_BG, 0xFF283444);
-        ctx.drawTextWithShadow(this.textRenderer, "FLUX COSMETICS WARDROBE", px + 12, py + 11, 0xFF29B2FF);
-        ctx.drawTextWithShadow(this.textRenderer, "All FLUX 1.21.11 capes & elytra skins unlocked free", px + 12, py + 22, 0xFF8C9AA8);
+        ctx.drawTextWithShadow(this.textRenderer, "FLUX COSMETICS WARDROBE", px + 12, py + 10, 0xFF29B2FF);
+        ctx.drawTextWithShadow(this.textRenderer, "All FLUX 1.21.11 capes & elytra skins unlocked free", px + 12, py + 21, 0xFF8C9AA8);
 
         int closeX = px + pw - 26;
         boolean closeHov = RenderUtils.isHovered(mouseX, mouseY, closeX, py + 8, 18, 18);
@@ -57,9 +57,10 @@ public class FluxCosmeticsScreen extends Screen {
         CosmeticsManager.CapeStyle[] styles = CosmeticsManager.CapeStyle.values();
         CosmeticsManager.CapeStyle active = CosmeticsManager.getInstance().getActiveCape();
 
-        int rowY = py + 38;
-        int rowH = 34;
-        int gap = 4;
+        boolean compact = ph < 230;
+        int rowY = py + (compact ? 35 : 38);
+        int rowH = compact ? 31 : 34;
+        int gap = compact ? 3 : 4;
 
         for (int i = 0; i < styles.length; i++) {
             CosmeticsManager.CapeStyle style = styles[i];
@@ -125,7 +126,7 @@ public class FluxCosmeticsScreen extends Screen {
         double my = click.y();
 
         int pw = Math.min(430, this.width - 24);
-        int ph = Math.min(238, this.height - 24);
+        int ph = Math.min(236, this.height - 14);
         int px = (this.width - pw) / 2;
         int py = (this.height - ph) / 2;
 
@@ -136,9 +137,10 @@ public class FluxCosmeticsScreen extends Screen {
         }
 
         CosmeticsManager.CapeStyle[] styles = CosmeticsManager.CapeStyle.values();
-        int rowY = py + 38;
-        int rowH = 34;
-        int gap = 4;
+        boolean compact = ph < 230;
+        int rowY = py + (compact ? 35 : 38);
+        int rowH = compact ? 31 : 34;
+        int gap = compact ? 3 : 4;
         for (int i = 0; i < styles.length; i++) {
             int ry = rowY + i * (rowH + gap);
             if (RenderUtils.isHovered(mx, my, px + 10, ry, pw - 20, rowH)) {

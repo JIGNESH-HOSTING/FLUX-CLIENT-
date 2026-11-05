@@ -10,7 +10,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexRendering;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -19,7 +18,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShapes;
 
 public final class HitboxesModule extends Module {
     private final BooleanSetting playersOnlySetting;
@@ -49,7 +47,7 @@ public final class HitboxesModule extends Module {
     }
 
     public void renderHitboxes(WorldRenderContext context) {
-        if (!isEnabled()) {
+        if (!isEnabled() || context.consumers() == null) {
             return;
         }
         MinecraftClient client = MinecraftClient.getInstance();
@@ -61,7 +59,7 @@ public final class HitboxesModule extends Module {
         float tickDelta = client.getRenderTickCounter().getTickProgress(false);
         double maxDistSq = maxDistanceSetting.get() * maxDistanceSetting.get();
         float width = lineWidthSetting.getFloat();
-        MatrixStack matrices = context.matrices();
+        MatrixStack.Entry entry = context.matrices().peek();
         VertexConsumer lineBuffer = context.consumers().getBuffer(RenderLayers.lines());
 
         for (Entity entity : client.world.getEntities()) {
@@ -82,33 +80,24 @@ public final class HitboxesModule extends Module {
             double iy = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY()) - cam.y;
             double iz = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ()) - cam.z;
 
-            Box rawBox = entity.getBoundingBox().offset(-entity.getX(), -entity.getY(), -entity.getZ());
-            int color = resolveEntityColor(entity);
+            Box bb = entity.getBoundingBox();
+            double halfX = (bb.maxX - bb.minX) * 0.5;
+            double heightY = bb.maxY - bb.minY;
+            double halfZ = (bb.maxZ - bb.minZ) * 0.5;
 
-            VertexRendering.drawOutline(
-                    matrices,
-                    lineBuffer,
-                    VoxelShapes.cuboid(rawBox),
-                    ix,
-                    iy,
-                    iz,
-                    color,
-                    width
-            );
+            float minX = (float) (ix - halfX);
+            float minY = (float) iy;
+            float minZ = (float) (iz - halfZ);
+            float maxX = (float) (ix + halfX);
+            float maxY = (float) (iy + heightY);
+            float maxZ = (float) (iz + halfZ);
+
+            int color = resolveEntityColor(entity);
+            drawBoxEdges(entry, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ, color, width);
 
             if (eyeHeightSetting.get() && entity instanceof LivingEntity) {
-                double eyeH = entity.getStandingEyeHeight();
-                Box eyeBox = new Box(rawBox.minX, eyeH - 0.01, rawBox.minZ, rawBox.maxX, eyeH + 0.01, rawBox.maxZ);
-                VertexRendering.drawOutline(
-                        matrices,
-                        lineBuffer,
-                        VoxelShapes.cuboid(eyeBox),
-                        ix,
-                        iy,
-                        iz,
-                        0xFFFF3B30,
-                        width
-                );
+                float eyeY = (float) (iy + entity.getStandingEyeHeight());
+                drawBoxEdges(entry, lineBuffer, minX, eyeY - 0.01f, minZ, maxX, eyeY + 0.01f, maxZ, 0xFFFF3B30, width);
             }
 
             if (lookVectorSetting.get()) {
@@ -119,17 +108,50 @@ public final class HitboxesModule extends Module {
                 float ex = (float) (sx + rot.x * 2.0);
                 float ey = (float) (sy + rot.y * 2.0);
                 float ez = (float) (sz + rot.z * 2.0);
-                MatrixStack.Entry entry = matrices.peek();
-                lineBuffer.vertex(entry, sx, sy, sz)
-                        .color(0xFF3399FF)
-                        .normal(entry, (float) rot.x, (float) rot.y, (float) rot.z)
-                        .lineWidth(width);
-                lineBuffer.vertex(entry, ex, ey, ez)
-                        .color(0xFF3399FF)
-                        .normal(entry, (float) rot.x, (float) rot.y, (float) rot.z)
-                        .lineWidth(width);
+                drawLine(entry, lineBuffer, sx, sy, sz, ex, ey, ez, (float) rot.x, (float) rot.y, (float) rot.z, 0xFF3399FF, width);
             }
         }
+    }
+
+    /**
+     * Zero-allocation 12-edge cuboid wireframe writer (saves VoxelShapes.cuboid heap allocations on 3GB RAM devices).
+     */
+    private static void drawBoxEdges(
+            MatrixStack.Entry entry,
+            VertexConsumer vc,
+            float x1, float y1, float z1,
+            float x2, float y2, float z2,
+            int color,
+            float width
+    ) {
+        // Bottom rectangle
+        drawLine(entry, vc, x1, y1, z1, x2, y1, z1, 1f, 0f, 0f, color, width);
+        drawLine(entry, vc, x2, y1, z1, x2, y1, z2, 0f, 0f, 1f, color, width);
+        drawLine(entry, vc, x2, y1, z2, x1, y1, z2, -1f, 0f, 0f, color, width);
+        drawLine(entry, vc, x1, y1, z2, x1, y1, z1, 0f, 0f, -1f, color, width);
+        // Top rectangle
+        drawLine(entry, vc, x1, y2, z1, x2, y2, z1, 1f, 0f, 0f, color, width);
+        drawLine(entry, vc, x2, y2, z1, x2, y2, z2, 0f, 0f, 1f, color, width);
+        drawLine(entry, vc, x2, y2, z2, x1, y2, z2, -1f, 0f, 0f, color, width);
+        drawLine(entry, vc, x1, y2, z2, x1, y2, z1, 0f, 0f, -1f, color, width);
+        // Vertical pillars
+        drawLine(entry, vc, x1, y1, z1, x1, y2, z1, 0f, 1f, 0f, color, width);
+        drawLine(entry, vc, x2, y1, z1, x2, y2, z1, 0f, 1f, 0f, color, width);
+        drawLine(entry, vc, x2, y1, z2, x2, y2, z2, 0f, 1f, 0f, color, width);
+        drawLine(entry, vc, x1, y1, z2, x1, y2, z2, 0f, 1f, 0f, color, width);
+    }
+
+    private static void drawLine(
+            MatrixStack.Entry entry,
+            VertexConsumer vc,
+            float x1, float y1, float z1,
+            float x2, float y2, float z2,
+            float nx, float ny, float nz,
+            int color,
+            float width
+    ) {
+        vc.vertex(entry, x1, y1, z1).color(color).normal(entry, nx, ny, nz).lineWidth(width);
+        vc.vertex(entry, x2, y2, z2).color(color).normal(entry, nx, ny, nz).lineWidth(width);
     }
 
     private int resolveEntityColor(Entity entity) {

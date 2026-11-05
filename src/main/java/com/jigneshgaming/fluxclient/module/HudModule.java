@@ -147,6 +147,33 @@ public abstract class HudModule extends Module {
         }
     }
 
+    protected void drawHudLineBox(DrawContext context, TextRenderer font, String line) {
+        if (line == null || line.isEmpty()) {
+            return;
+        }
+        int padX = 6;
+        int padY = 4;
+        int boxW = font.getWidth(line) + padX * 2;
+        int boxH = padY * 2 + 8;
+        setLastDimensions(boxW, boxH);
+
+        if (backgroundSetting.get()) {
+            int bgAlpha = bgOpacitySetting.getInt();
+            context.fill(0, 0, boxW, boxH, ColorUtil.argb(bgAlpha, 11, 14, 19));
+            context.drawStrokedRectangle(0, 0, boxW, boxH, ColorUtil.argb(Math.min(200, bgAlpha + 35), 34, 43, 56));
+            if (accentBarSetting.get()) {
+                int accent = textColorSetting.is("White")
+                        ? ColorUtil.FLUX_BLUE
+                        : textColorSetting.resolveArgb(235);
+                context.fill(0, 0, 2, boxH, accent);
+            }
+        }
+
+        int textColor = textColorSetting.resolveArgb(255);
+        int textX = padX + (accentBarSetting.get() && backgroundSetting.get() ? 1 : 0);
+        context.drawText(font, line, textX, padY, textColor, shadowSetting.get());
+    }
+
     protected void drawHudLinesBox(DrawContext context, TextRenderer font, List<String> lines) {
         if (lines == null || lines.isEmpty()) {
             return;

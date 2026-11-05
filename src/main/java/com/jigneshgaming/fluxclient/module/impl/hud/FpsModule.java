@@ -7,7 +7,6 @@ import com.jigneshgaming.fluxclient.module.setting.ModeSetting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
-import java.util.Collections;
 import java.util.Locale;
 
 public final class FpsModule extends HudModule {
@@ -21,7 +20,7 @@ public final class FpsModule extends HudModule {
         super(
                 "fps",
                 "FPS",
-                "Displays real-time client framerate without artificial inflation.",
+                "FPS Counter — displays real-time client framerate without artificial inflation.",
                 ModuleIcon.FPS,
                 true,
                 0.012f,
@@ -34,7 +33,7 @@ public final class FpsModule extends HudModule {
     @Override
     protected void renderContent(DrawContext context, MinecraftClient client, boolean previewMode) {
         long now = System.currentTimeMillis();
-        if (now - lastUpdateMs >= 150L || previewMode) {
+        if (now - lastUpdateMs >= 200L || previewMode) {
             lastUpdateMs = now;
             int fps = Math.max(0, client.getCurrentFps());
             String base = switch (formatSetting.getValue()) {
@@ -48,6 +47,6 @@ public final class FpsModule extends HudModule {
             }
             cachedLine = base;
         }
-        drawHudLinesBox(context, client.textRenderer, Collections.singletonList(cachedLine));
+        drawHudLineBox(context, client.textRenderer, cachedLine);
     }
 }

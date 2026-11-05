@@ -51,7 +51,7 @@ public final class ServerInfoModule extends HudModule {
                 cachedLine = previewMode ? "play.fluxclient.net • 24 ms" : "Menu";
             }
         }
-        drawHudLinesBox(context, client.textRenderer, Collections.singletonList(cachedLine));
+        drawHudLineBox(context, client.textRenderer, cachedLine);
     }
 
     private static int resolveLatency(MinecraftClient client, ServerInfo serverInfo) {

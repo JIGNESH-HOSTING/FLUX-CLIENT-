@@ -53,7 +53,7 @@ public final class MemoryUsageModule extends HudModule {
         }
 
         if (!showBarSetting.get()) {
-            drawHudLinesBox(context, client.textRenderer, Collections.singletonList(cachedText));
+            drawHudLineBox(context, client.textRenderer, cachedText);
             return;
         }
 

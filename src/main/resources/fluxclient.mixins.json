@@ -6,12 +6,14 @@
   "client": [
     "MinecraftClientMixin",
     "ScreenMixin",
+    "EntryListWidgetMixin",
     "GameRendererMixin",
     "LightmapTextureManagerMixin",
     "ClientWorldPropertiesMixin",
     "KeyboardInputMixin",
     "MouseMixin",
     "EntityRenderManagerMixin",
+    "BlockEntityRenderManagerMixin",
     "ParticleManagerMixin",
     "AbstractClientPlayerEntityMixin"
   ],

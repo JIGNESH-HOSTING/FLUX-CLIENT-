@@ -74,25 +74,29 @@ public final class FluxClientMod implements ClientModInitializer {
                 category
         ));
 
-        // 3. Register Client Tick Loop
+        // 3. Register Client Tick Loop (guarded for runtime safety on PojavLauncher & desktop)
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            LowEndOptimizer.getInstance().onClientTick(client);
-            moduleManager.onTick(client);
+            try {
+                LowEndOptimizer.getInstance().onClientTick(client);
+                moduleManager.onTick(client);
 
-            while (OPEN_MENU_KEY.wasPressed()) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new FluxModMenuScreen(null));
+                while (OPEN_MENU_KEY.wasPressed()) {
+                    if (client.currentScreen == null) {
+                        client.setScreen(new FluxModMenuScreen(null));
+                    }
                 }
-            }
-            while (HUD_EDITOR_KEY.wasPressed()) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new HudEditorScreen(null));
+                while (HUD_EDITOR_KEY.wasPressed()) {
+                    if (client.currentScreen == null) {
+                        client.setScreen(new HudEditorScreen(null));
+                    }
                 }
-            }
-            while (QUICK_MESSAGES_KEY.wasPressed()) {
-                if (client.currentScreen == null && moduleManager.quickMessages.isEnabled()) {
-                    client.setScreen(new QuickMessagesScreen(null));
+                while (QUICK_MESSAGES_KEY.wasPressed()) {
+                    if (client.currentScreen == null && moduleManager.quickMessages.isEnabled()) {
+                        client.setScreen(new QuickMessagesScreen(null));
+                    }
                 }
+            } catch (Exception e) {
+                LOGGER.debug("Handled tick exception in FLUX CLIENT: {}", e.getMessage());
             }
         });
 
@@ -101,9 +105,13 @@ public final class FluxClientMod implements ClientModInitializer {
                 VanillaHudElements.CHAT,
                 Identifier.of(MOD_ID, "hud_overlay"),
                 (context, tickCounter) -> {
-                    MinecraftClient client = MinecraftClient.getInstance();
-                    moduleManager.renderHud(context, client);
-                    FluxNotificationOverlay.render(context, client);
+                    try {
+                        MinecraftClient client = MinecraftClient.getInstance();
+                        moduleManager.renderHud(context, client);
+                        FluxNotificationOverlay.render(context, client);
+                    } catch (Exception e) {
+                        LOGGER.debug("Handled HUD render exception in FLUX CLIENT: {}", e.getMessage());
+                    }
                 }
         );
 
@@ -135,9 +143,8 @@ public final class FluxClientMod implements ClientModInitializer {
         });
 
         // 5. Register 3D World Render Hooks (Block Overlay & Entity Hitboxes)
-        WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineRenderState) ->
-                !moduleManager.blockOverlay.renderBlockOutline(context, outlineRenderState)
-        );
+        // Returning false cancels vanilla outline when custom Block Overlay renders; true falls back to vanilla.
+        WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(moduleManager.blockOverlay::renderBlockOutline);
 
         WorldRenderEvents.BEFORE_DEBUG_RENDER.register(moduleManager.hitboxes::renderHitboxes);
 

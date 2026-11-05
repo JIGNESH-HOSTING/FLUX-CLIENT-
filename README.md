@@ -8,12 +8,12 @@ Designed for both **Desktop Java 21** and **low-end Android Java launchers** (su
 
 ## Key Features
 
-### 1. Custom FLUX CLIENT Main Menu & Dark Menu Backdrop
-- Desaturated dark voxel landscape backdrop (`ScreenMixin` & `FluxMainMenuScreen`) replacing vanilla's heavy 6-face rotating 3D panorama shader to cut idle GPU fillrate on mobile GPUs.
-- Top-left live player chip + quick-action icons (**Mod Menu**, **Quick Messages**, **Screenshots Folder**, **Minecraft Settings**) and top-right **Quit** button.
-- Glowing electric-blue `F` emblem + `FLUX CLIENT` branding with neon-blue hover buttons:
-  - **Singleplayer**, **Multiplayer** (dark-themed server list backdrop), **Cosmetics**, **Mods**, **Store**, and **Quit Game**.
-- Bottom-right Discord CTA card and clean `Flux Client 1.21.11` version footer.
+### 1. Custom FLUX CLIENT Main Menu & Unified Dark Menu Backdrop
+- Desaturated dark voxel landscape backdrop (`ScreenMixin`, `EntryListWidgetMixin` & `FluxMainMenuScreen`) applied consistently across the **Main Menu**, **Multiplayer Screen**, **World Selection Screen**, and **Options / Settings Screens**, replacing vanilla's heavy 6-face rotating 3D panorama and multi-pass Gaussian blur to cut idle GPU fillrate on mobile GPUs.
+- Top-right live player chip + 4 quick-action buttons (**Mod Menu**, **Quick Messages**, **Screenshots Folder**, **Minecraft Settings**) + crimson **Quit** button.
+- Side-by-side glowing electric-blue `F` emblem + `FLUX CLIENT` hero branding with smooth blue-bloom hover transitions on all 6 buttons:
+  - **Singleplayer**, **Multiplayer**, **Cosmetics**, **Mods**, **Store**, and **Quit Game**.
+- Bottom-right two-tone **JOIN OUR DISCORD / CLICK HERE ->** card and clean `Flux Client 1.21.11` version footer (with zero floating launcher overlays).
 
 ### 2. Custom Orange & Black In-Game Mod Menu (`Right Shift`)
 - **Category Filters**: `All`, `HUD`, `Render`, `Movement`, `Player`, `Utility`.
@@ -66,9 +66,12 @@ Designed for both **Desktop Java 21** and **low-end Android Java launchers** (su
 ### 4. Low-End & PojavLauncher Optimization Engine
 Accessible via the **Gauge** tab in the Mod Menu header (`LowEndOptimizer`):
 - **Distance-Based Entity Culling** (`EntityRenderManagerMixin`): Skips rendering distant ambient/passive mobs, armor stands, item frames, and dropped items/XP orbs beyond configurable thresholds while **never** culling players, bosses, glowing entities, or custom-named entities.
+- **Distance-Based Block Entity Culling** (`BlockEntityRenderManagerMixin`): Skips building render state and drawing distant chests, signs, banners, and skulls while keeping long-range beacons and end gateways/portals visible.
 - **Particle Burst & Distance Limiter** (`ParticleManagerMixin`): Caps per-tick particle spawns and distant particles so TNT, crystal, or weather bursts do not stall mobile Tile-Based Deferred Rendering (TBDR) GPUs.
+- **Menu Gaussian Blur Bypass** (`ScreenMixin`): Bypasses expensive multi-pass FBO Gaussian blur shaders when opening menus on PojavLauncher / GL4ES / mobile GPUs.
+- **Zero-Allocation HUD Pipeline**: Caches throttled readout strings (`FPS`, `Memory`, `Clock`, `Biome`, `Direction`, `Server Info`, `Resource Packs`) so HUD rendering allocates zero temporary lists or strings per frame on tight 3 GB RAM heaps.
 - **Unfocused FPS Limiter** (`MinecraftClientMixin`): Caps frame rate when unfocused to reduce battery drain and thermal throttling.
-- **One-Click Low-End Profile**: Applies sensible fast-graphics, cloud-off, reduced-particle, and 6-chunk view/5-chunk simulation settings safely.
+- **One-Click Low-End Profile**: Applies heap-aware view/simulation distances (`5/4` chunks on `<= 1.2 GB` heaps, `6/5` chunks otherwise), fast clouds/off, `0` biome blend, `0` menu blur, and reduced particles safely.
 - **Zero `java.awt` Dependencies**: Pure integer ARGB/HSV math ensures full compatibility with stripped mobile Java 21 runtimes.
 
 ---
@@ -110,11 +113,11 @@ release/flux-client-1.0.0+mc1.21.11.jar
 3. Launch the `fabric-loader-1.21.11` profile.
 4. Configuration is automatically saved to `.minecraft/config/fluxclient/config.json`.
 
-### Android Java Launchers (PojavLauncher / Zalith / MojoLauncher)
+### Android Java Launchers (Vivo 1916 — Android 9, 3 GB RAM / PojavLauncher)
 1. Select or create a **Minecraft `1.21.11` Fabric** instance configured to use **JRE / Java 21**.
 2. Copy **Fabric API (`1.21.11`)** and `flux-client-1.0.0+mc1.21.11.jar` into the instance's `.minecraft/mods/` directory.
-3. Allocate `1024 MB – 2048 MB` RAM (avoid over-allocating on 4 GB RAM devices so Android's OS & OpenGL/ANGLE driver keep headroom).
-4. Launch the game, open **Mods -> Gauge Icon (Optimizer)**, and click **Apply Low-End Profile** for optimal mobile frame pacing.
+3. On **3 GB RAM devices (e.g., Vivo 1916)**, allocate **`950 MB – 1150 MB` RAM** (avoid allocating over `1.3 GB` so Android 9 and the OpenGL/GL4ES/LTW driver keep native memory headroom and avoid LMK force-closes). On 4 GB+ devices, `1280 MB – 2048 MB` is ideal.
+4. Launch the game, open **Mods -> Gauge Icon (Low-End Optimizer)**, and click **Apply Low-End Profile** for optimal mobile frame pacing.
 5. *(Recommended compatible performance mods)*: Pairs cleanly alongside **Sodium**, **Lithium**, **FerriteCore**, and **ImmediatelyFast** for `1.21.11`.
 
 ---

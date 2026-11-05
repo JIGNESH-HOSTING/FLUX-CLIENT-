@@ -9,7 +9,6 @@ import net.minecraft.client.gui.DrawContext;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.Locale;
 
 public final class ClockModule extends HudModule {
@@ -59,6 +58,6 @@ public final class ClockModule extends HudModule {
                 }
             }
         }
-        drawHudLinesBox(context, client.textRenderer, Collections.singletonList(cachedTime));
+        drawHudLineBox(context, client.textRenderer, cachedTime);
     }
 }

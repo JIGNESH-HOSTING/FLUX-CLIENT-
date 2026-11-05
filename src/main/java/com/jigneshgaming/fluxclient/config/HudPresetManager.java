@@ -34,12 +34,12 @@ public final class HudPresetManager {
     }
 
     public static final List<PresetInfo> PRESETS = List.of(
-            new PresetInfo("01", "pvp_focus", "PvP Focus", "FPS, Server Info, Direction", 0xFFEE5A24),
-            new PresetInfo("02", "stream_clean", "Stream Clean", "FPS, Clock", 0xFF2ECC71),
-            new PresetInfo("03", "survival_scout", "Survival Scout", "FPS, Coordinates, Direction, Biome", 0xFF3498DB),
-            new PresetInfo("04", "performance", "Performance", "FPS, Memory, Server Info", 0xFFF1C40F),
-            new PresetInfo("05", "builder_utility", "Builder Utility", "Coordinates, Direction, Clock, Packs", 0xFF9B59B6),
-            new PresetInfo("06", "custom_layout", "Custom Layout", "Saved from your current setup", 0xFF00D2D3)
+            new PresetInfo("01", "pvp_focus", "PvP Focus", "FPS, Server Info, Direction, Auto Sprint, Crosshair & Hurt Shake off", 0xFFF05A24),
+            new PresetInfo("02", "stream_clean", "Stream Clean", "Readable essentials arranged away from center for clean gameplay", 0xFF2ECC71),
+            new PresetInfo("03", "survival_scout", "Survival Scout", "Detailed navigation, Coordinates, Direction, Biome, Clock & Full Bright", 0xFF3498DB),
+            new PresetInfo("04", "performance", "Performance", "FPS, Memory, Ping and low-noise rendering optimizations", 0xFFF1C40F),
+            new PresetInfo("05", "builder_utility", "Builder Utility", "Coordinates, Direction, Clock, Block Overlay, Time Changer & Zoom", 0xFF9B59B6),
+            new PresetInfo("06", "custom_layout", "Custom Layout", "Saved from your current personal HUD positions & active setup", 0xFF00D2D3)
     );
 
     private static final Map<String, Boolean> customModuleStates = new HashMap<>();

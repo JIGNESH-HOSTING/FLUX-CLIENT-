@@ -58,7 +58,7 @@ public final class ResourcePacksModule extends HudModule {
                 }
             }
         }
-        drawHudLinesBox(context, client.textRenderer, Collections.singletonList(cachedLine));
+        drawHudLineBox(context, client.textRenderer, cachedLine);
     }
 
     private static boolean isBuiltInPack(String id) {

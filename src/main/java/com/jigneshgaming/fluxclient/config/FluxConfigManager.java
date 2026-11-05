@@ -130,9 +130,12 @@ public final class FluxConfigManager {
         optObj.addProperty("entityCulling", opt.isEntityCullingEnabled());
         optObj.addProperty("passiveEntityMaxDistance", opt.getPassiveEntityMaxDistance());
         optObj.addProperty("itemEntityMaxDistance", opt.getItemEntityMaxDistance());
+        optObj.addProperty("blockEntityCulling", opt.isBlockEntityCullingEnabled());
+        optObj.addProperty("blockEntityMaxDistance", opt.getBlockEntityMaxDistance());
         optObj.addProperty("particleLimiter", opt.isParticleLimiterEnabled());
         optObj.addProperty("maxParticlesPerTick", opt.getMaxParticlesPerTick());
         optObj.addProperty("particleMaxDistance", opt.getParticleMaxDistance());
+        optObj.addProperty("menuBlurBypass", opt.isMenuBlurBypass());
         optObj.addProperty("unfocusedFpsLimiter", opt.isUnfocusedFpsLimiter());
         optObj.addProperty("unfocusedMaxFps", opt.getUnfocusedMaxFps());
         root.add("optimization", optObj);
@@ -218,9 +221,12 @@ public final class FluxConfigManager {
                 if (optObj.has("entityCulling")) opt.setEntityCullingEnabled(optObj.get("entityCulling").getAsBoolean());
                 if (optObj.has("passiveEntityMaxDistance")) opt.setPassiveEntityMaxDistance(optObj.get("passiveEntityMaxDistance").getAsInt());
                 if (optObj.has("itemEntityMaxDistance")) opt.setItemEntityMaxDistance(optObj.get("itemEntityMaxDistance").getAsInt());
+                if (optObj.has("blockEntityCulling")) opt.setBlockEntityCullingEnabled(optObj.get("blockEntityCulling").getAsBoolean());
+                if (optObj.has("blockEntityMaxDistance")) opt.setBlockEntityMaxDistance(optObj.get("blockEntityMaxDistance").getAsInt());
                 if (optObj.has("particleLimiter")) opt.setParticleLimiterEnabled(optObj.get("particleLimiter").getAsBoolean());
                 if (optObj.has("maxParticlesPerTick")) opt.setMaxParticlesPerTick(optObj.get("maxParticlesPerTick").getAsInt());
                 if (optObj.has("particleMaxDistance")) opt.setParticleMaxDistance(optObj.get("particleMaxDistance").getAsInt());
+                if (optObj.has("menuBlurBypass")) opt.setMenuBlurBypass(optObj.get("menuBlurBypass").getAsBoolean());
                 if (optObj.has("unfocusedFpsLimiter")) opt.setUnfocusedFpsLimiter(optObj.get("unfocusedFpsLimiter").getAsBoolean());
                 if (optObj.has("unfocusedMaxFps")) opt.setUnfocusedMaxFps(optObj.get("unfocusedMaxFps").getAsInt());
             }

@@ -8,15 +8,20 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.MathHelper;
 
-import java.util.Collections;
-import java.util.Locale;
-
 public final class DirectionModule extends HudModule {
     private static final String[] CARDINALS = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
-    private static final String[] AXES = {"+Z", "-X / +Z", "-X", "-X / -Z", "-Z", "+X / -Z", "+X", "+X / +Z"};
+    private static final String[] CARDINAL_WITH_AXIS = {
+            "S [+Z]", "SW [-X / +Z]", "W [-X]", "NW [-X / -Z]",
+            "N [-Z]", "NE [+X / -Z]", "E [+X]", "SE [+X / +Z]"
+    };
 
     private final BooleanSetting showAxisSetting;
     private final BooleanSetting showDegreesSetting;
+
+    private int lastDegInt = Integer.MIN_VALUE;
+    private boolean lastAxis = true;
+    private boolean lastShowDeg = false;
+    private String cachedLine = "N [-Z]";
 
     public DirectionModule() {
         super(
@@ -37,20 +42,23 @@ public final class DirectionModule extends HudModule {
         Entity cam = client.getCameraEntity();
         if (cam == null) {
             if (previewMode) {
-                drawHudLinesBox(context, client.textRenderer, Collections.singletonList("Facing: N (-Z)"));
+                drawHudLineBox(context, client.textRenderer, "N [-Z]");
             }
             return;
         }
         float yaw = MathHelper.wrapDegrees(cam.getYaw());
-        int idx = Math.floorMod(Math.round(yaw / 45.0f), 8);
-        StringBuilder sb = new StringBuilder(24);
-        sb.append(CARDINALS[idx]);
-        if (showAxisSetting.get()) {
-            sb.append(" [").append(AXES[idx]).append(']');
+        int degInt = Math.round(yaw);
+        boolean axis = showAxisSetting.get();
+        boolean showDeg = showDegreesSetting.get();
+
+        if (degInt != lastDegInt || axis != lastAxis || showDeg != lastShowDeg) {
+            lastDegInt = degInt;
+            lastAxis = axis;
+            lastShowDeg = showDeg;
+            int idx = Math.floorMod(Math.round(yaw / 45.0f), 8);
+            String base = axis ? CARDINAL_WITH_AXIS[idx] : CARDINALS[idx];
+            cachedLine = showDeg ? (base + " " + degInt + "°") : base;
         }
-        if (showDegreesSetting.get()) {
-            sb.append(String.format(Locale.ROOT, " %.0f°", yaw));
-        }
-        drawHudLinesBox(context, client.textRenderer, Collections.singletonList(sb.toString()));
+        drawHudLineBox(context, client.textRenderer, cachedLine);
     }
 }
