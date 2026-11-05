@@ -1,0 +1,58 @@
+name: Build FLUX CLIENT 1.21.11
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x ./gradlew
+
+      - name: Build Fabric 1.21.11 Mod JAR
+        run: ./gradlew --no-daemon clean build
+
+      - name: Stage Compiled Deliverable JAR into release/
+        run: |
+          mkdir -p release
+          rm -f release/*.jar
+          cp build/libs/flux-client-1.0.0+mc1.21.11.jar release/flux-client-1.0.0+mc1.21.11.jar
+          ls -lh release/
+
+      - name: Upload Compiled JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flux-client-1.21.11-jar
+          path: release/flux-client-1.0.0+mc1.21.11.jar
+
+      - name: Commit Compiled JAR to release/
+        if: github.ref_type == 'branch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f release/flux-client-1.0.0+mc1.21.11.jar
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): update compiled flux-client 1.21.11 jar [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi

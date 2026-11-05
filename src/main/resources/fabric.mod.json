@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "fluxclient",
+  "version": "${version}",
+  "name": "FLUX CLIENT",
+  "description": "High-performance Minecraft Java Edition 1.21.11 client featuring custom Main Menu, Mod Menu, 22 working modules, HUD presets, and low-end Android/desktop optimization. Made by JIGNESHGAMING-k7j.",
+  "authors": [
+    "JIGNESHGAMING-k7j"
+  ],
+  "contact": {
+    "homepage": "https://github.com/JIGNESH-HOSTING/FLUX-CLIENT-",
+    "sources": "https://github.com/JIGNESH-HOSTING/FLUX-CLIENT-"
+  },
+  "license": "LGPL-3.0-only",
+  "icon": "assets/fluxclient/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.jigneshgaming.fluxclient.FluxClientMod"
+    ]
+  },
+  "mixins": [
+    "fluxclient.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.17.3",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "sodium": "*",
+    "lithium": "*",
+    "ferritecore": "*",
+    "immediatelyfast": "*"
+  }
+}

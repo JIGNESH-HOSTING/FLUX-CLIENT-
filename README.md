@@ -1,160 +1,141 @@
-<div align="center">
+# FLUX CLIENT (`1.21.11`)
 
-# CS Launcher Plus
+**FLUX CLIENT** is a lightweight, high-performance **Minecraft Java Edition `1.21.11`** Fabric client mod developed by **JIGNESHGAMING-k7j**.
 
-**A fast, modern Minecraft: Java Edition launcher for Android**
-<br>
-<sub>Faster. Smoother. More customisable.</sub>
+Designed for both **Desktop Java 21** and **low-end Android Java launchers** (such as PojavLauncher / Zalith / MojoLauncher), FLUX CLIENT delivers a sleek custom **Main Menu**, an orange-and-black **Mod Menu**, **22 real working modules**, **6 instant HUD Presets**, a **drag-and-drop HUD Layout Editor**, client-side **Cosmetics**, and **genuine GPU/CPU frame-pacing optimizations** with zero fake FPS counters and zero `java.awt` desktop-only dependencies.
 
-<br>
+---
 
-<a href="https://github.com/craftstudioteam/CS-LAUNCHER-PLUS/releases/latest"><img src="https://img.shields.io/github/v/release/craftstudioteam/CS-LAUNCHER-PLUS?style=for-the-badge&label=Latest&color=C6C6CE" alt="Latest release"></a>
-&nbsp;
-<a href="https://github.com/craftstudioteam/CS-LAUNCHER-PLUS/releases"><img src="https://img.shields.io/github/downloads/craftstudioteam/CS-LAUNCHER-PLUS/total?style=for-the-badge&color=2ea043" alt="Downloads"></a>
-&nbsp;
-<img src="https://img.shields.io/badge/Android-5.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 5.0+">
-&nbsp;
-<a href="LICENSE"><img src="https://img.shields.io/badge/License-LGPL--3.0-6e7681?style=for-the-badge" alt="License"></a>
+## Key Features
 
-<br><br>
+### 1. Custom FLUX CLIENT Main Menu & Dark Menu Backdrop
+- Desaturated dark voxel landscape backdrop (`ScreenMixin` & `FluxMainMenuScreen`) replacing vanilla's heavy 6-face rotating 3D panorama shader to cut idle GPU fillrate on mobile GPUs.
+- Top-left live player chip + quick-action icons (**Mod Menu**, **Quick Messages**, **Screenshots Folder**, **Minecraft Settings**) and top-right **Quit** button.
+- Glowing electric-blue `F` emblem + `FLUX CLIENT` branding with neon-blue hover buttons:
+  - **Singleplayer**, **Multiplayer** (dark-themed server list backdrop), **Cosmetics**, **Mods**, **Store**, and **Quit Game**.
+- Bottom-right Discord CTA card and clean `Flux Client 1.21.11` version footer.
 
-<a href="https://github.com/craftstudioteam/CS-LAUNCHER-PLUS/releases/latest"><img src="https://img.shields.io/badge/Download%20APK-Latest%20Release-1f6feb?style=for-the-badge&logo=github&logoColor=white" alt="Download APK"></a>
-&nbsp;
-<a href="https://discord.gg/dmteYqZZyY"><img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-&nbsp;
-<a href="https://youtube.com/@craft-studio-official"><img src="https://img.shields.io/badge/YouTube-Craft%20Studio-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="YouTube"></a>
+### 2. Custom Orange & Black In-Game Mod Menu (`Right Shift`)
+- **Category Filters**: `All`, `HUD`, `Render`, `Movement`, `Player`, `Utility`.
+- **Live Search**: Instant filtering across module names, descriptions, and categories.
+- **4-Column Scrollable Module Grid**:
+  - Signature top orange accent strip (`#EE5A24`) when enabled.
+  - Custom crisp geometric module icons.
+  - Per-module **Gear** settings modal (boolean switches, draggable numeric sliders, mode selectors, color presets, and inline text inputs).
+  - Emerald **Enabled** / slate **Disabled** toggle state.
+- **HUD Presets Modal (`Presets`)**:
+  - `01` **PvP Focus** — FPS, Server Info, Direction, Auto Sprint, Crosshair, Hurt Shake Off, Scoreboard & Full Bright.
+  - `02` **Stream Clean** — Minimal edge-aligned FPS, Coordinates & Clock.
+  - `03` **Survival Scout** — FPS, Coordinates, Direction, Biome, Clock, Full Bright & Zoom.
+  - `04` **Performance** — FPS, Memory Usage, Server Info + Entity & Particle culling enabled.
+  - `05` **Builder Utility** — Coordinates, Direction, Biome, Clock, Block Overlay, Time Changer & Zoom.
+  - `06` **Custom Layout** — Snapshots and restores your custom dragged HUD positions & active modules.
+- **Reset Confirmation Modal (`Reset`)**:
+  - **DEFAULTS** (`Restore original setup`)
+  - **REMOVE ALL** (`Disable every module`)
+- **Drag-and-Drop HUD Editor (`H` key or Monitor icon)**:
+  - Drag any active HUD module anywhere on screen with center-axis snapping and **mouse-wheel scaling** (`0.7x` – `1.8x`).
 
-<br>
+### 3. All 22 Working Modules
 
-<img src="assets/readme/home.jpg" alt="CS Launcher Plus home screen" width="100%">
+| Category | Module | Description |
+| :--- | :--- | :--- |
+| **HUD** | **FPS Counter** | Live frame rate readout with optional frame-time (`ms`) and min/max tracking. |
+| **HUD** | **Coordinates** | Real-time `X / Y / Z` position, chunk coordinates, and Nether/Overworld dimension conversion. |
+| **HUD** | **Direction** | Cardinal/intercardinal compass (`N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`) + exact yaw/pitch. |
+| **HUD** | **Clock** | Real-world 12h/24h system time or in-game world day & clock time. |
+| **HUD** | **Memory Usage** | JVM heap usage (`%` and `Used / Max MB`) with allocation bar. |
+| **HUD** | **Biome** | Formatted current biome name from the client world chunk registry. |
+| **HUD** | **Resource Packs** | Active resource pack count and top pack summary. |
+| **HUD** | **Server Info** | Current server address (`Singleplayer` / server IP) and live player list ping (`ms`). |
+| **Render** | **Full Bright** | Blaze3D `1.21.11` Lightmap UBO brightness boost + optional Darkness pulse suppression. |
+| **Render** | **Block Overlay** | Custom colored block selection wireframe & optional translucent face fill. |
+| **Render** | **Hitboxes** | Custom entity bounding boxes with optional eye-height ring and look-vector ray. |
+| **Render** | **Remove Hurt Shake** | Cancels or scales camera damage tilt (`0%` – `100%`) for steady aim. |
+| **Render** | **Hide Boss Bar** | Cleanly suppresses top-screen boss bar overlays. |
+| **Render** | **Time Changer** | Client-side sky time override (`Sunrise`, `Day`, `Noon`, `Sunset`, `Night`, `Midnight`, `Custom`). |
+| **Render** | **Custom Crosshair** | Crisp `Cross`, `Circle`, `Dot`, or `Cross + Dot` reticle with dynamic attack-cooldown & entity target tinting. |
+| **Render** | **Custom Scoreboard** | Clean sidebar scoreboard with toggleable red score numbers, custom opacity, and vertical offset. |
+| **Movement** | **Auto Sprint** | Server-safe automatic forward sprinting respecting hunger, sneaking, blindness, and item usage. |
+| **Player** | **Toggle Sneak** | Hands-free crouch toggle with optional menu auto-release. |
+| **Utility** | **Zoom** | Smooth optical FOV zoom (`C` key) with scroll-wheel magnification and proportional mouse sensitivity scaling. |
+| **Utility** | **Auto GG** | Detects match-end chat messages on popular servers with anti-spam cooldown and customizable message. |
+| **Utility** | **Quick Messages** | 6 customizable chat/command macro slots (`G` key in-game). |
+| **Utility** | **Notifications** | Smooth slide-in bottom-right status toasts for module & preset actions. |
 
-</div>
+### 4. Low-End & PojavLauncher Optimization Engine
+Accessible via the **Gauge** tab in the Mod Menu header (`LowEndOptimizer`):
+- **Distance-Based Entity Culling** (`EntityRenderManagerMixin`): Skips rendering distant ambient/passive mobs, armor stands, item frames, and dropped items/XP orbs beyond configurable thresholds while **never** culling players, bosses, glowing entities, or custom-named entities.
+- **Particle Burst & Distance Limiter** (`ParticleManagerMixin`): Caps per-tick particle spawns and distant particles so TNT, crystal, or weather bursts do not stall mobile Tile-Based Deferred Rendering (TBDR) GPUs.
+- **Unfocused FPS Limiter** (`MinecraftClientMixin`): Caps frame rate when unfocused to reduce battery drain and thermal throttling.
+- **One-Click Low-End Profile**: Applies sensible fast-graphics, cloud-off, reduced-particle, and 6-chunk view/5-chunk simulation settings safely.
+- **Zero `java.awt` Dependencies**: Pure integer ARGB/HSV math ensures full compatibility with stripped mobile Java 21 runtimes.
 
-<br>
+---
 
-## About
+## Default Keybinds
 
-CS Launcher Plus lets you play Minecraft: Java Edition on Android with a clean, redesigned interface, one-tap mod loaders, built-in mod and world downloads, and tools that fix crashes for you. It is built by **Craft Studio** on top of the open-source PojavLauncher project.
+| Key | Action |
+| :--- | :--- |
+| **Right Shift** | Open FLUX Mod Menu |
+| **H** | Open Drag-and-Drop HUD Layout Editor |
+| **C** | Zoom (Hold or Toggle mode) |
+| **G** | Open Quick Messages Popup (when Quick Messages module is enabled) |
 
-<br>
+*(All keybinds can also be rebound inside Minecraft's standard `Options -> Controls -> Key Binds -> FLUX CLIENT` menu.)*
 
-## Highlights
+---
 
-| | Feature | What you get |
-|:--|:--|:--|
-| <img src="https://img.shields.io/badge/-UI-8957e5?style=flat-square" alt="UI"> | **Completely new UI** | Every screen rebuilt on one design system, smooth animations, light and dark theme |
-| <img src="https://img.shields.io/badge/-Multiplayer-1f6feb?style=flat-square" alt="Multiplayer"> | **Virtual LAN** <sub>Beta</sub> | Play Open-to-LAN worlds with friends over the internet, no port forwarding |
-| <img src="https://img.shields.io/badge/-Loaders-2ea043?style=flat-square" alt="Loaders"> | **One-tap loaders** | Fabric, Forge, NeoForge, Quilt, OptiFine, Legacy Fabric and BTA, any loader version |
-| <img src="https://img.shields.io/badge/-CurseForge-f16436?style=flat-square" alt="CurseForge"> | **Modrinth + CurseForge** | Mods, resource packs, shaders and worlds, in the launcher and in-game |
-| <img src="https://img.shields.io/badge/-Auto%20Fix-da3633?style=flat-square" alt="Auto Fix"> | **Crash Auto Fix** | Reads the crash log, finds the cause and repairs it with one tap |
-| <img src="https://img.shields.io/badge/-Storage-d29922?style=flat-square" alt="Storage"> | **Custom storage folder** | Keep your game data wherever you want, with a built-in migration tool |
-| <img src="https://img.shields.io/badge/-Controls-3fb950?style=flat-square" alt="Controls"> | **Control customisation** | Move, resize and re-skin every on-screen button |
-| <img src="https://img.shields.io/badge/-Discord-5865F2?style=flat-square" alt="Discord"> | **Discord Rich Presence** | Shows the profile, version and server you are playing |
+## Prebuilt JAR Deliverable
 
-<br>
+The compiled, remapped Fabric `1.21.11` mod JAR is located in:
 
-## Screenshots
+```text
+release/flux-client-1.0.0+mc1.21.11.jar
+```
 
-<table>
-<tr>
-<td width="50%"><img src="assets/readme/create-instance.jpg" alt="Create instance"><br><sub><b>Create instance</b> — Normal, CS Client or Modpack</sub></td>
-<td width="50%"><img src="assets/readme/profiles.jpg" alt="Profiles"><br><sub><b>Profiles</b> — switch, edit and create instances</sub></td>
-</tr>
-<tr>
-<td><img src="assets/readme/mod-library.jpg" alt="Mod library"><br><sub><b>Mod library</b> — Modrinth and CurseForge, compatibility checked</sub></td>
-<td><img src="assets/readme/manage-content.jpg" alt="Manage content"><br><sub><b>Manager</b> — installed mods, packs, shaders and worlds</sub></td>
-</tr>
-<tr>
-<td><img src="assets/readme/account.jpg" alt="Offline account"><br><sub><b>Accounts</b> — offline player with 3D skin preview</sub></td>
-<td><img src="assets/readme/home.jpg" alt="Home"><br><sub><b>Home</b> — selected profile, one-tap PLAY, resources and manager</sub></td>
-</tr>
-</table>
+---
 
-<br>
+## Installation Instructions (Desktop & PojavLauncher)
 
-## Features
+### Requirements
+- **Minecraft Java Edition**: `1.21.11`
+- **Mod Loader**: [Fabric Loader](https://fabricmc.net/) `0.17.3+` (tested with `0.18.6`)
+- **Required Dependency**: [Fabric API](https://modrinth.com/mod/fabric-api) for `1.21.11` (`0.141.6+1.21.11` or newer)
+- **Java Runtime**: Java `21`
 
-### Interface
-- New **home screen** with banner, profile card, version chip and a PLAY button that downloads and launches in one tap
-- **Top navigation dock** — Home · Downloads · Mods · Multiplayer · Controls · Logs · Play Time
-- Redesigned **settings hub**, account creation, account picker and 3D skin preview
-- Brand-new **Play Time** page with per-day statistics
-- Simple first-launch tutorial and a contextual help button
-- **Languages:** English, Hinglish, Hindi and 8+ more
+### Desktop (Official Launcher / Prism Launcher / Modrinth App)
+1. Install **Fabric Loader** for Minecraft **`1.21.11`**.
+2. Place **Fabric API (`1.21.11`)** and `flux-client-1.0.0+mc1.21.11.jar` into your `.minecraft/mods/` folder.
+3. Launch the `fabric-loader-1.21.11` profile.
+4. Configuration is automatically saved to `.minecraft/config/fluxclient/config.json`.
 
-### Profiles and versions
-- Every profile can use the classic **Vanilla look** or the custom **CS look**
-- Profile editor with phone and tablet layouts, icon picker, loader and version pickers with search
-- Per-profile RAM, Java runtime, renderer and shared or separate game folder
-- Home-screen **shortcuts** that start a profile directly
+### Android Java Launchers (PojavLauncher / Zalith / MojoLauncher)
+1. Select or create a **Minecraft `1.21.11` Fabric** instance configured to use **JRE / Java 21**.
+2. Copy **Fabric API (`1.21.11`)** and `flux-client-1.0.0+mc1.21.11.jar` into the instance's `.minecraft/mods/` directory.
+3. Allocate `1024 MB – 2048 MB` RAM (avoid over-allocating on 4 GB RAM devices so Android's OS & OpenGL/ANGLE driver keep headroom).
+4. Launch the game, open **Mods -> Gauge Icon (Optimizer)**, and click **Apply Low-End Profile** for optimal mobile frame pacing.
+5. *(Recommended compatible performance mods)*: Pairs cleanly alongside **Sodium**, **Lithium**, **FerriteCore**, and **ImmediatelyFast** for `1.21.11`.
 
-### Mods, packs and worlds
-- Browse and install from **Modrinth and CurseForge** with dependency handling and exact version matching
-- **In-game resource browser** — download packs and shaders without leaving the game
-- **World downloader** and world management: view, rename, delete, backup and restore
-- One **Manager** tab for installed mods, packs and worlds, with mod updates
+---
 
-### Multiplayer
-- **Virtual LAN (Beta):** host creates a session, shares a short code, friends join in one tap
-- Works on Wi-Fi and mobile data, direct or relay connection, automatic reconnect
-- Live member list, connection status, kick, diagnostics and Send logs
+## Building From Source
 
-### Stability
-- **Advanced Crash Auto Fix:** 15 crash categories detected, common problems repaired automatically
-- Crash screen with AUTO FIX · VIEW CRASH REPORT · VIEW DETAILS · RETRY LAUNCH
-- Silent crashes explained with a post-mortem report
+```bash
+git clone https://github.com/JIGNESH-HOSTING/FLUX-CLIENT-.git
+cd FLUX-CLIENT-
+./gradlew --no-daemon clean build
+```
 
-<br>
+The remapped production mod JAR is generated at:
 
-## Install
+```text
+build/libs/flux-client-1.0.0+mc1.21.11.jar
+```
 
-1. Download the latest **CS-Launcher-Plus-vX.Y.Z.apk** from [Releases](https://github.com/craftstudioteam/CS-LAUNCHER-PLUS/releases/latest)
-2. Open the file and allow installation from this source if Android asks
-3. Launch, sign in or create a local account, pick a version and press **PLAY**
+---
 
-> **Updating from v1.5.0 or older?** v1.5.1 and newer use a new app signature, so they install as a separate app the first time. Install once and move your profiles over; every later update installs on top.
-
-**Requirements:** Android 5.0+ (64-bit recommended), about 1 GB free storage, 3 GB RAM or more for modded play.
-
-<br>
-
-## Releases
-
-| Version | Notes |
-|:--|:--|
-| [v1.5.1](https://github.com/craftstudioteam/CS-LAUNCHER-PLUS/releases/tag/v1.5.1) | Hotfix: "App not installed" error, Loader Version picker now lists every loader version |
-| [v1.5.0](https://github.com/craftstudioteam/CS-LAUNCHER-PLUS/releases/tag/v1.5.0) | The Big Update: new UI, Virtual LAN, CurseForge, Crash Auto Fix, custom storage and more |
-
-Full changelogs are on the [Releases](https://github.com/craftstudioteam/CS-LAUNCHER-PLUS/releases) page.
-
-<br>
-
-## Support and community
-
-- **Discord:** https://discord.gg/dmteYqZZyY — help, announcements and feedback
-- **YouTube:** https://youtube.com/@craft-studio-official — tutorials and update videos
-- **Bugs:** open an [issue](https://github.com/craftstudioteam/CS-LAUNCHER-PLUS/issues) and attach the crash report from the crash screen or the Logs tab
-
-If the game crashes after an update, open the crash screen and press **AUTO FIX** first. It solves most cases automatically.
-
-<br>
-
-## Partners
-
-CS Launcher Plus is the official launcher of **OPTL (Official Pojav Tierlist)**. See the **Partners** page inside the launcher for details and perks.
-
-<br>
-
-## Credits and license
-
-Built on [PojavLauncher](https://github.com/PojavLauncherTeam/PojavLauncher) and its open-source components (LWJGL, GL4ES, Mobile GLues and others). Minecraft is a trademark of Mojang Studios; this project is not affiliated with Mojang or Microsoft.
-
-Licensed under the **GNU LGPL v3.0** — see [LICENSE](LICENSE). Read our [Privacy Policy](PRIVACY_POLICY_en).
-
-<br>
-
-<div align="center">
-
-<sub>Made with care by <b>Craft Studio</b></sub>
-
-</div>
+## Credits
+- **Client Name**: FLUX CLIENT (`1.21.11`)
+- **Developer**: **JIGNESHGAMING-k7j**
+- **License**: LGPL-3.0-only

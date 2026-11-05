@@ -1,0 +1,26 @@
+package com.jigneshgaming.fluxclient.module;
+
+public enum ModuleIcon {
+    FPS,
+    COORDINATES,
+    DIRECTION,
+    CLOCK,
+    MEMORY_USAGE,
+    BIOME,
+    RESOURCE_PACKS,
+    SERVER_INFO,
+    FULL_BRIGHT,
+    BLOCK_OVERLAY,
+    HITBOXES,
+    REMOVE_HURT_SHAKE,
+    HIDE_BOSS_BAR,
+    TIME_CHANGER,
+    CUSTOM_CROSSHAIR,
+    CUSTOM_SCOREBOARD,
+    AUTO_SPRINT,
+    TOGGLE_SNEAK,
+    ZOOM,
+    AUTO_GG,
+    QUICK_MESSAGES,
+    NOTIFICATIONS
+}

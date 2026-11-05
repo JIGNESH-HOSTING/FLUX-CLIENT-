@@ -1,31 +1,59 @@
-import java.security.MessageDigest
-
-plugins{
-    id 'com.android.application' version '8.7.2' apply false
-    id 'com.android.library' version '8.7.2' apply false
-    id 'com.google.gms.google-services' version '4.4.2' apply false
+plugins {
+    id 'fabric-loom' version "${loom_version}"
+    id 'maven-publish'
 }
 
-static void hashFileWithDigest(File fileToHash, MessageDigest digest){
-    fileToHash.withInputStream { is ->
-        byte[] buffer = new byte[8192]
-        int read
-        while ((read = is.read(buffer)) != -1) {
-            digest.update(buffer, 0, read)
-        }
+version = "${project.mod_version}+mc${project.minecraft_version}"
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    maven {
+        name = 'Fabric'
+        url = 'https://maven.fabricmc.net/'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.loader_version
+
+    filesMatching("fabric.mod.json") {
+        expand(
+            "version": inputs.properties.version,
+            "minecraft_version": inputs.properties.minecraft_version,
+            "loader_version": inputs.properties.loader_version
+        )
     }
 }
 
-static void writeVersionFile(File jarFile, File versionFile){
-    def sha1 = MessageDigest.getInstance("SHA-1")
-    hashFileWithDigest(jarFile, sha1)
-    versionFile.write(sha1.digest().collect { String.format("%02x", it) }.join())
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release = 21
 }
 
-static void writeVersionFile(File[] jarFileArray, File versionFile){
-    def sha1 = MessageDigest.getInstance("SHA-1")
-    jarFileArray.each {jarFile ->
-        hashFileWithDigest(jarFile, sha1)
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+    inputs.property "archivesName", project.base.archivesName
+
+    from("LICENSE") {
+        rename { "${it}_${inputs.properties.archivesName}" }
     }
-    versionFile.write(sha1.digest().collect { String.format("%02x", it) }.join())
 }

@@ -1,0 +1,21 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.jigneshgaming.fluxclient.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MinecraftClientMixin",
+    "ScreenMixin",
+    "GameRendererMixin",
+    "LightmapTextureManagerMixin",
+    "ClientWorldPropertiesMixin",
+    "KeyboardInputMixin",
+    "MouseMixin",
+    "EntityRenderManagerMixin",
+    "ParticleManagerMixin",
+    "AbstractClientPlayerEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
